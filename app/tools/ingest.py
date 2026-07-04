@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.models import Transaction, TransactionSource
+from app.tools.categorize import categorize
 from app.tools.injection_guard import detect_injection
 from app.tools.ledger import DEFAULT_LEDGER_PATH, load_ledger, save_ledger
 from app.tools.reconcile import reconcile
@@ -93,15 +94,34 @@ def parse_statement_csv(
     return out
 
 
+def _categorize(txn: Transaction) -> Transaction:
+    """Apply the deterministic first-pass categorization if not already set.
+
+    Categorizing at ingest (using the shared categorize() engine) means the ledger
+    is always ready for both consumers — budget totals and the card strategist —
+    without a separate pass. The Categorization agent still refines ambiguous cases
+    and applies user corrections on top of this baseline.
+    """
+    if txn.category is not None and txn.bonus_category is not None:
+        return txn
+    budget_cat, bonus_cat = categorize(txn.merchant)
+    return txn.model_copy(
+        update={
+            "category": txn.category or budget_cat,
+            "bonus_category": txn.bonus_category or bonus_cat,
+        }
+    )
+
+
 def _persist_with_reconciliation(
     new_records: list[Transaction], ledger_path: Path
 ) -> IngestResult:
-    """Redact new records, reconcile against the existing ledger, and save.
+    """Redact + categorize new records, reconcile against the ledger, and save.
 
     Reconciliation runs over (existing + new) so a fresh statement line can merge
     with a receipt already in the ledger (and vice versa).
     """
-    redacted = [redact_transaction(t) for t in new_records]
+    redacted = [_categorize(redact_transaction(t)) for t in new_records]
     before = load_ledger(ledger_path)
     combined = reconcile(before + redacted)
     save_ledger(combined, ledger_path)  # raises if any record is unredacted
@@ -156,5 +176,34 @@ def ingest_receipt(
         notes=notes,
     )
     result = _persist_with_reconciliation([receipt], ledger_path)
+    result.injection_flags = flags
+    return result
+
+
+def ingest_manual(
+    description: str,
+    amount_cents: int,
+    txn_date: datetime.date | None = None,
+    ledger_path: Path = DEFAULT_LEDGER_PATH,
+) -> IngestResult:
+    """Log a conversational manual expense (cash/PayNow) as a categorized entry.
+
+    Turns "I spent $30 cash on lunch" into a MANUAL Transaction with no card, a
+    positive expense amount, and a category assigned by the shared engine. Like
+    every other write, it goes through the redact + PII-guard path.
+    """
+    txn_date = txn_date or datetime.date.today()
+    flags = detect_injection(description)
+    # Disambiguate the id with the current ledger size so repeated identical
+    # entries ("coffee $5") do not collapse to the same id.
+    idx = len(load_ledger(ledger_path))
+    txn = Transaction(
+        id=_stable_id("man", description, amount_cents, txn_date.isoformat(), idx),
+        merchant=description,
+        amount_cents=abs(amount_cents),  # a logged spend is an expense
+        txn_date=txn_date,
+        source=TransactionSource.MANUAL,
+    )
+    result = _persist_with_reconciliation([txn], ledger_path)
     result.injection_flags = flags
     return result

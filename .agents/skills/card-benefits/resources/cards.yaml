@@ -1,0 +1,42 @@
+# Card benefits reference — the STATIC source of truth for card terms.
+#
+# This file exists so the model READS exact numbers instead of hallucinating them
+# (the course's "reference skill" pattern, analogous to the license-header data
+# file). Every minimum-spend target, deadline, and multiplier the Card Strategy
+# agent uses comes from here — never invented.
+#
+# Amounts are integer cents. Multiplier keys are bonus categories
+# (TRAVEL/DINING/GROCERIES/DEFAULT); DEFAULT is the "everything else" rate.
+# `min_spend_progress_cents` is intentionally omitted here — it is COMPUTED from
+# the ledger at query time, not stored.
+
+cards:
+  - id: amex_gold
+    name: "American Express Gold"
+    # Active sign-up bonus: spend $3,000 by the deadline to earn it.
+    min_spend_target_cents: 300000
+    bonus_deadline: "2026-07-13"
+    category_multipliers:
+      TRAVEL: 3.0
+      DINING: 4.0
+      GROCERIES: 4.0
+      DEFAULT: 1.0
+
+  - id: chase_sapphire
+    name: "Chase Sapphire Preferred"
+    # No active sign-up bonus right now — but the best everyday TRAVEL rate.
+    min_spend_target_cents: null
+    bonus_deadline: null
+    category_multipliers:
+      TRAVEL: 5.0
+      DINING: 3.0
+      GROCERIES: 1.0
+      DEFAULT: 1.0
+
+  - id: citi_double
+    name: "Citi Double Cash"
+    # No bonus; a flat 2x on everything — the sensible default card.
+    min_spend_target_cents: null
+    bonus_deadline: null
+    category_multipliers:
+      DEFAULT: 2.0

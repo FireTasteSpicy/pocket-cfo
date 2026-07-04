@@ -1,0 +1,17 @@
+# Monthly budget limits per category (default config — tracked, not user PII).
+# `spent_cents` is computed from the ledger at query time, not stored here.
+# Amounts are integer cents. The Groceries $400 line matches the SPEC budget
+# scenario ("$400 monthly groceries budget").
+budgets:
+  - category: "Travel"
+    monthly_limit_cents: 150000
+  - category: "Dining"
+    monthly_limit_cents: 40000
+  - category: "Groceries"
+    monthly_limit_cents: 40000
+  - category: "Shopping"
+    monthly_limit_cents: 30000
+  - category: "Gas"
+    monthly_limit_cents: 15000
+  - category: "Subscriptions"
+    monthly_limit_cents: 10000

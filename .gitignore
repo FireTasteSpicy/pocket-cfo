@@ -210,6 +210,7 @@ credentials*.json
 token*.json          # cached OAuth tokens (Calendar MCP)
 
 # Pocket CFO runtime artifacts (never commit real financial data or eval traces)
-app/data/ledger.json # the local redacted ledger is user data, not source
-artifacts/           # agents-cli eval traces + grade results
-!app/data/seed/      # ...but DO track the synthetic sample docs used for demos/tests
+app/data/ledger.json      # the local redacted ledger is user data, not source
+app/data/corrections.json # learned categorization corrections are user data
+artifacts/                # agents-cli eval traces + grade results
+!app/data/seed/           # ...but DO track the synthetic sample docs for demos/tests
