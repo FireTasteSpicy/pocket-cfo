@@ -223,5 +223,8 @@ app/data/calendar_client_secret.json
 app/data/calendar_token.json
 # Ephemeral PKCE state between the two-step manual OAuth flow (short-lived):
 app/data/.calendar_oauth_state.json
+# Cached id of the dedicated "Pocket CFO Demo" calendar (per-account, not a secret,
+# but environment-specific state -- not source):
+app/data/calendar_demo_id.json
 # ...but DO track the synthetic sample docs used for demos/tests:
 !app/data/seed/

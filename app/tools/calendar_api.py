@@ -24,6 +24,7 @@ app/agents/calendar_agent.py).
 from __future__ import annotations
 
 import datetime
+import json
 from pathlib import Path
 
 from app.models import CalendarEvent, CalendarEventType
@@ -32,11 +33,23 @@ from app.tools.calendar_events import compute_money_dates
 from app.tools.cards import load_cards
 from app.tools.ledger import load_ledger
 
-# calendar.events (not just .readonly) is required to CREATE events.
-CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
+# The full "calendar" scope (not just .events) is required: creating/listing the
+# dedicated "Pocket CFO Demo" calendar itself (calendars().insert/calendarList())
+# needs calendar-management permission, which the narrower calendar.events scope
+# (event CRUD only) does not grant.
+CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
 CLIENT_SECRET_PATH = Path("app/data/calendar_client_secret.json")
 TOKEN_PATH = Path("app/data/calendar_token.json")
+
+# Pocket CFO writes to its OWN secondary calendar, never the user's primary one --
+# demo events (or any accidental double-run) stay out of the user's real schedule
+# and are trivially removable (delete the calendar, not individual events). Google
+# Calendar has no "category" concept within a calendar; a separate calendar IS the
+# mechanism the API exposes for this. The id is cached after first creation so
+# repeated runs reuse the same calendar instead of creating duplicates.
+DEMO_CALENDAR_SUMMARY = "Pocket CFO Demo"
+_DEMO_CALENDAR_ID_CACHE = Path("app/data/calendar_demo_id.json")
 
 # Friendly titles per event type (kept out of the model's prompt — this is
 # formatting, not reasoning).
@@ -98,10 +111,61 @@ def event_body(event: CalendarEvent) -> dict:
     }
 
 
-def create_event(service, event: CalendarEvent) -> dict:
-    """Insert one CalendarEvent into the user's primary calendar. Returns the API response."""
+def create_event(service, event: CalendarEvent, calendar_id: str = "primary") -> dict:
+    """Insert one CalendarEvent into `calendar_id`. Returns the API response.
+
+    Defaults to "primary" only for callers that explicitly want that (e.g. a
+    quick manual test); sync_money_dates_to_calendar always passes the dedicated
+    demo calendar's id explicitly.
+    """
     return (
-        service.events().insert(calendarId="primary", body=event_body(event)).execute()
+        service.events()
+        .insert(calendarId=calendar_id, body=event_body(event))
+        .execute()
+    )
+
+
+def get_or_create_demo_calendar_id(service) -> str:
+    """Return the id of Pocket CFO's dedicated "Pocket CFO Demo" calendar.
+
+    Order of preference: (1) a cached id from a prior run, verified still valid;
+    (2) an existing calendar with the right name (in case the cache was lost but
+    the calendar wasn't); (3) create it fresh. Never returns "primary" -- this is
+    the whole point of keeping demo events off the user's real calendar.
+    """
+    if _DEMO_CALENDAR_ID_CACHE.exists():
+        cached_id = json.loads(_DEMO_CALENDAR_ID_CACHE.read_text()).get("calendar_id")
+        if cached_id:
+            try:
+                service.calendars().get(calendarId=cached_id).execute()
+                return cached_id
+            except Exception:
+                pass
+
+    existing = service.calendarList().list().execute()
+    for entry in existing.get("items", []):
+        if entry.get("summary") == DEMO_CALENDAR_SUMMARY:
+            _cache_demo_calendar_id(entry["id"])
+            return entry["id"]
+
+    created = (
+        service.calendars()
+        .insert(
+            body={
+                "summary": DEMO_CALENDAR_SUMMARY,
+                "description": "Money-date reminders created by the Pocket CFO Calendar agent.",
+            }
+        )
+        .execute()
+    )
+    _cache_demo_calendar_id(created["id"])
+    return created["id"]
+
+
+def _cache_demo_calendar_id(calendar_id: str) -> None:
+    _DEMO_CALENDAR_ID_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    _DEMO_CALENDAR_ID_CACHE.write_text(
+        json.dumps({"calendar_id": calendar_id}), encoding="utf-8"
     )
 
 
@@ -110,13 +174,15 @@ def sync_money_dates_to_calendar() -> dict:
 
     Computes payday, payment-due, and each card's bonus-deadline events from the
     ledger and card terms (app/tools/calendar_events.py), then creates one
-    all-day event per date via the live Calendar API. This is the ADK tool the
-    Calendar agent calls for "add my money reminders" -- it is only attached to
-    the agent when calendar_write_available() is true (see calendar_agent.py).
+    all-day event per date in Pocket CFO's OWN "Pocket CFO Demo" calendar --
+    never the user's primary calendar. This is the ADK tool the Calendar agent
+    calls for "add my money reminders" -- it is only attached to the agent when
+    calendar_write_available() is true (see calendar_agent.py).
 
     Returns:
-        {"synced": True, "count": int, "events": [...]} on success, or
-        {"synced": False, "reason": str} if the one-time OAuth setup is missing.
+        {"synced": True, "count": int, "calendar_name": str, "events": [...]} on
+        success, or {"synced": False, "reason": str} if the one-time OAuth setup
+        is missing.
     """
     service = get_calendar_service()
     if service is None:
@@ -128,11 +194,12 @@ def sync_money_dates_to_calendar() -> dict:
             ),
         }
 
+    calendar_id = get_or_create_demo_calendar_id(service)
     cards = compute_card_progress(load_cards(), load_ledger())
     events = compute_money_dates(cards)
     created = []
     for event in events:
-        result = create_event(service, event)
+        result = create_event(service, event, calendar_id=calendar_id)
         created.append(
             {
                 "type": event.type.value,
@@ -141,4 +208,9 @@ def sync_money_dates_to_calendar() -> dict:
                 "html_link": result.get("htmlLink"),
             }
         )
-    return {"synced": True, "count": len(created), "events": created}
+    return {
+        "synced": True,
+        "count": len(created),
+        "calendar_name": DEMO_CALENDAR_SUMMARY,
+        "events": created,
+    }
