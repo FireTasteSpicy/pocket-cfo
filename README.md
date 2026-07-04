@@ -236,7 +236,12 @@ the standard, GA Calendar API — needs none of that:
 #  3. Credentials -> Create Credentials -> OAuth client ID -> Desktop app -> Create
 #     -> Download JSON -> save as app/data/calendar_client_secret.json (gitignored).
 
-uv run python scripts/calendar_oauth_setup.py   # opens a URL; sign in and Allow once
+# Two steps (manual copy-paste — avoids WSL2's flaky localhost port forwarding):
+uv run python scripts/calendar_oauth_setup.py start
+#   -> prints a URL. Visit it, sign in, click Allow. The page you land on will
+#      likely fail to load (nothing is listening on localhost) — that's expected.
+#      Copy the FULL url from your browser's address bar.
+uv run python scripts/calendar_oauth_setup.py finish "<pasted URL>"
 ```
 
 After that, the Calendar agent's `sync_money_dates_to_calendar` tool creates real
