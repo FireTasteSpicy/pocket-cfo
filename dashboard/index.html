@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pocket CFO</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #f4f4f8; min-height: 100vh; padding: 40px 18px;
+    background: radial-gradient(1200px 600px at 15% -10%, #4338ca 0%, transparent 55%),
+                radial-gradient(1000px 700px at 110% 10%, #0ea5e9 0%, transparent 50%),
+                linear-gradient(160deg, #0b1020 0%, #131a32 60%, #0b1020 100%);
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 { font-size: 34px; letter-spacing: -0.5px; }
+  header p { color: #b9c0e0; margin-top: 6px; font-size: 15px; }
+  .badge {
+    display: inline-block; margin-top: 12px; padding: 5px 14px; font-size: 12px;
+    border-radius: 999px; background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.16); color: #cfe3ff;
+  }
+  .glass {
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14);
+    border-radius: 20px; padding: 22px 24px; margin-bottom: 20px;
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 10px 40px rgba(0,0,0,.35);
+  }
+  .glass h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px;
+    color: #aab4e0; margin-bottom: 16px; font-weight: 600; }
+  .hero { background: linear-gradient(135deg, rgba(99,102,241,.30), rgba(14,165,233,.18)); }
+  .hero .q { color: #cfe3ff; font-size: 14px; margin-bottom: 8px; }
+  .hero .a { font-size: 21px; line-height: 1.45; font-weight: 600; }
+  .hero .a b { color: #a5f3d0; }
+  .row { margin-bottom: 18px; }
+  .row:last-child { margin-bottom: 4px; }
+  .row-head { display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 8px; font-size: 15px; }
+  .name { font-weight: 600; }
+  .muted { color: #aeb6d8; font-size: 13px; }
+  .sub { color: #98a0c4; font-size: 12px; margin-top: 6px; }
+  .track { height: 12px; border-radius: 999px; background: rgba(255,255,255,.10);
+    overflow: hidden; }
+  .fill { height: 100%; border-radius: 999px;
+    background: linear-gradient(90deg, #34d399, #38bdf8); }
+  .fill.over { background: linear-gradient(90deg, #fbbf24, #f43f5e); }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; vertical-align: middle;
+    background: rgba(244,63,94,.22); border: 1px solid rgba(244,63,94,.5); color: #ffd3da; }
+  footer { text-align: center; color: #7f88ad; font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Pocket&nbsp;CFO</h1>
+      <p>A privacy-first finance concierge that reasons about your money.</p>
+      <span class="badge">read-only &middot; never moves money &middot; PII redacted locally</span>
+    </header>
+
+    <section class="glass hero">
+      <div class="q">"I'm about to book a $500 flight &mdash; which card should I use?"</div>
+      <div class="a">💳 <b>American Express Gold</b> &mdash; Put it on the American Express Gold — it clears your $3,000 minimum with 8 days to spare, and travel earns 3x anyway. Heads up: this would put your Travel budget $168.33 over its $1,500 monthly limit.</div>
+    </section>
+
+    <section class="glass">
+      <h2>Sign-up bonus progress</h2>
+
+        <div class="row">
+          <div class="row-head">
+            <span class="name">American Express Gold</span>
+            <span class="muted">$2,500 / $3,000 &middot; 8 days left</span>
+          </div>
+          <div class="track"><div class="fill" style="width:83.3%"></div></div>
+          <div class="sub">$500 to go to clear the sign-up bonus</div>
+        </div>
+    </section>
+
+    <section class="glass">
+      <h2>This month's budget</h2>
+
+        <div class="row">
+          <div class="row-head">
+            <span class="name">Travel </span>
+            <span class="muted">$1,168.33 / $1,500</span>
+          </div>
+          <div class="track"><div class="fill" style="width:77.9%"></div></div>
+        </div>
+
+        <div class="row">
+          <div class="row-head">
+            <span class="name">Dining </span>
+            <span class="muted">$159.00 / $400</span>
+          </div>
+          <div class="track"><div class="fill" style="width:39.8%"></div></div>
+        </div>
+
+        <div class="row">
+          <div class="row-head">
+            <span class="name">Groceries <span class="pill">over budget</span></span>
+            <span class="muted">$409.18 / $400</span>
+          </div>
+          <div class="track"><div class="fill over" style="width:100.0%"></div></div>
+        </div>
+
+        <div class="row">
+          <div class="row-head">
+            <span class="name">Shopping </span>
+            <span class="muted">$205.49 / $300</span>
+          </div>
+          <div class="track"><div class="fill" style="width:68.5%"></div></div>
+        </div>
+
+        <div class="row">
+          <div class="row-head">
+            <span class="name">Gas </span>
+            <span class="muted">$58.00 / $150</span>
+          </div>
+          <div class="track"><div class="fill" style="width:38.7%"></div></div>
+        </div>
+    </section>
+
+    <footer>Generated from the redacted ledger &middot; every figure traces to cards.yaml or the ledger.</footer>
+  </div>
+</body>
+</html>
