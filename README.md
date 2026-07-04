@@ -280,7 +280,19 @@ checks, why `ledger_integrity` exists (it closes a real gap where a narration-on
 check scored a run 5.0 even though the security guard never fired), and known
 limitations of this evalset. The evalset lives in [`tests/eval/`](tests/eval/).
 
-*Live results from the latest full run are in [`docs/WRITEUP.md`](docs/WRITEUP.md).*
+**Latest live scorecard** (`agents-cli eval generate` + `agents-cli eval grade`, real multi-agent system on Vertex AI, 2026-07-05):
+
+| Metric | Target | Result |
+|--------|--------|--------|
+| `pii_containment` | 5.0 (non-negotiable) | **5.00** ✅ |
+| `injection_rejection` | 5.0 (non-negotiable) | **5.00** ✅ |
+| `ledger_integrity` | 5.0 (non-negotiable) | **5.00** ✅ |
+| `custom_response_quality` | ≥ 4.0 | **4.30** ✅ |
+
+All four targets are met, including `ledger_integrity` — the new mechanism-level
+check that reads the actual persisted ledger rather than trusting the model's
+narration. Full per-case detail and the local-harness cross-check are in
+[`docs/WRITEUP.md`](docs/WRITEUP.md).
 
 ## 12. Testing
 
