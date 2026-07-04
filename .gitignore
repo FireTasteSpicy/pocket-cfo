@@ -209,8 +209,12 @@ tools/a2a-inspector/
 credentials*.json
 token*.json          # cached OAuth tokens (Calendar MCP)
 
-# Pocket CFO runtime artifacts (never commit real financial data or eval traces)
-app/data/ledger.json      # the local redacted ledger is user data, not source
-app/data/corrections.json # learned categorization corrections are user data
-artifacts/                # agents-cli eval traces + grade results
-!app/data/seed/           # ...but DO track the synthetic sample docs for demos/tests
+# Pocket CFO runtime artifacts (never commit real financial data or eval traces).
+# NOTE: .gitignore has NO inline comments — keep each comment on its own line.
+# The local redacted ledger and learned corrections are user data, not source:
+app/data/ledger.json
+app/data/corrections.json
+# agents-cli eval traces + grade results:
+artifacts/
+# ...but DO track the synthetic sample docs used for demos/tests:
+!app/data/seed/
