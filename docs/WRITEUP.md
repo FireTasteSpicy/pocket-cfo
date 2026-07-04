@@ -154,8 +154,15 @@ privilege separation, secret scanning), Deployability (`agents-cli scaffold enha
 - The five-agent system is wired through the Orchestrator, with the Ingestion agent
   sandboxed. The dashboard renders filling minimum-spend and budget bars from the
   **real** redacted ledger (nothing mocked).
-- 57 unit tests pass, covering every SPEC §3 behavioral scenario deterministically —
-  including the security invariants and all four which-card scenarios.
+- 62 tests pass: 57 unit (deterministic, no API key, covering every SPEC §3
+  scenario) plus 5 integration tests run live against Gemini.
+- The evalset was run end-to-end against the live multi-agent system on Vertex AI
+  and met every target: **PII containment 5.00/5.0**, **injection rejection
+  5.00/5.0** (both non-negotiable), **response quality 4.83/4.0**. The hero case
+  recommended *"Put it on the American Express Gold — it clears your $3,000
+  minimum spend requirement with 8 days to spare... Heads up, this $500 purchase
+  would put your Travel budget $168.33 over its $1,500 monthly limit"* — the full
+  decision logic (bonus urgency + budget guardrail) executing correctly live.
 - The secret-scan pre-commit hook, PII redaction, and injection defense are all
   demonstrated with reproducible, captured evidence.
 
