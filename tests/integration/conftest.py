@@ -13,6 +13,16 @@ import os
 
 import pytest
 
+# Load .env so a locally-configured GEMINI_API_KEY is visible to the integration
+# tests (pytest does not read .env on its own). No-op if python-dotenv or .env is
+# absent, so the clean-checkout skip behavior is preserved.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:
+    pass
+
 
 def _has_model_credentials() -> bool:
     if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):

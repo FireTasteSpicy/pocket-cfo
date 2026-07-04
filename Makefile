@@ -25,18 +25,25 @@ unit:               ## Run only the fast, deterministic unit tests
 	uv run pytest tests/unit -v
 
 # ── LLM-as-judge evaluation (course pattern) ────────────────────────────────
-# Needs a GEMINI_API_KEY in .env, and a seeded ledger (`make seed`) so the
-# which-card / minimum-spend cases have data.
+# Needs Gemini credentials in .env (GEMINI_API_KEY, or Vertex project+ADC — Vertex
+# is recommended: the AI Studio free tier caps at 5 req/min, too low for a
+# multi-agent eval loop), and a seeded ledger (`make seed`) so the which-card /
+# minimum-spend cases have data.
 _EVAL_DATASET := tests/eval/datasets/pocket-cfo-dataset.json
 _EVAL_CONFIG  := tests/eval/eval_config.yaml
+# Picks the most recently generated trace file for grading.
+_LATEST_TRACE = $$(ls -t artifacts/traces/*.json | head -1)
 
 generate-traces:    ## (README alias) Run the agent over the eval dataset -> traces
 	uv run agents-cli eval generate --dataset $(_EVAL_DATASET)
 
-grade:              ## (README alias) Grade the generated traces (1-5 LLM-as-judge)
-	uv run agents-cli eval grade --config $(_EVAL_CONFIG)
+grade:              ## (README alias) Grade the most recent traces (1-5 LLM-as-judge)
+	uv run agents-cli eval grade --config $(_EVAL_CONFIG) --traces $(_LATEST_TRACE)
 
 eval: seed generate-traces grade  ## Seed, generate traces, then grade (full loop)
+
+eval-local:         ## Local AI-Studio-compatible eval harness (bypasses Vertex-managed eval service)
+	uv run python tests/eval/run_eval.py
 
 # ── Quality & security ──────────────────────────────────────────────────────
 lint:               ## Ruff lint + format check

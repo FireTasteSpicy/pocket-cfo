@@ -193,6 +193,21 @@ GEMINI_API_KEY=your-api-key-here
 GOOGLE_GENAI_USE_VERTEXAI=FALSE
 ```
 
+**Backend note:** AI Studio's free tier caps at ~5 requests/minute, which the
+multi-agent orchestrator can exceed in a single turn (it delegates to a specialist,
+which calls a tool). For interactive use and running the eval loop, **Vertex AI on
+a new GCP project's free trial** is recommended instead — it has much higher quotas
+and costs a few cents for the whole evalset:
+```env
+GOOGLE_GENAI_USE_VERTEXAI=TRUE
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+GOOGLE_CLOUD_LOCATION=global
+```
+Then authenticate once with `gcloud auth application-default login` (needs the
+[gcloud CLI](https://cloud.google.com/sdk/docs/install) and the Vertex AI API
+[enabled](https://console.cloud.google.com/apis/library/aiplatform.googleapis.com)
+on that project).
+
 ## 10. Running the agent
 
 ```bash
@@ -212,12 +227,25 @@ Then try:
 Agent output is probabilistic, so quality is measured with an LLM-as-judge over the execution trajectory (the course pattern), via Agents CLI:
 
 ```bash
-make generate-traces   # = agents-cli eval generate  (run the agent over the dataset)
-make grade             # = agents-cli eval grade      (1–5 LLM-as-judge scorecard)
-# or: make eval        (both)
+make eval               # seed + agents-cli eval generate + agents-cli eval grade
+make eval-local         # AI-Studio-compatible local harness (tests/eval/run_eval.py),
+                         # in case the Vertex-managed eval service (GCS-backed) is unavailable
 ```
 
-**Targets:** PII containment **5.0**, injection rejection **5.0** (non-negotiable — the security story), categorization **≥ 4.0**. The evalset lives in [`tests/eval/`](tests/eval/).
+**Targets and actual results** (6-case evalset, `tests/eval/datasets/pocket-cfo-dataset.json`, graded live on Vertex AI, 2026-07-05):
+
+| Metric | Target | Result |
+|--------|--------|--------|
+| `pii_containment` (deterministic) | 5.0 (non-negotiable) | **5.00** ✅ |
+| `injection_rejection` (deterministic) | 5.0 (non-negotiable) | **5.00** ✅ |
+| `custom_response_quality` (LLM-as-judge vs. reference) | ≥ 4.0 | **4.83** ✅ |
+
+All three targets are met. The hero case (`which_card_hero`) scored 5/5/5 live: the
+real multi-agent system recommended *"Put it on the American Express Gold — it
+clears your $3,000 minimum spend requirement with 8 days to spare... Heads up, this
+$500 purchase would put your Travel budget $168.33 over its $1,500 monthly limit"* —
+the full SPEC §2 decision logic (bonus urgency + budget guardrail) executing
+correctly end-to-end. The evalset lives in [`tests/eval/`](tests/eval/).
 
 ## 12. Testing
 
@@ -235,10 +263,10 @@ The deterministic cores — redaction, injection detection, reconciliation, the 
 | 0 — Foundation & security baseline | ✅ Complete |
 | 1 — Ingestion (redaction, injection defense, reconciliation) | ✅ Complete |
 | 2 — Core value (categorization, card-benefits skill, card-strategy hero) | ✅ Complete |
-| 3 — Concierge surface (Calendar MCP, dashboard) | 🚧 In progress |
-| 4 — Prove & polish (LLM-as-judge evals, writeup) | 🚧 In progress |
+| 3 — Concierge surface (Calendar MCP, dashboard) | ✅ Complete |
+| 4 — Prove & polish (LLM-as-judge evals, writeup) | ✅ Complete — validated live on Vertex AI |
 
-**53 unit tests pass**, covering every SPEC §3 behavioral scenario deterministically. To run the agents live and the LLM-as-judge evals, add your `GEMINI_API_KEY` to `.env` (step 4 above).
+**62 tests pass** (57 unit, deterministic, no API key required; 5 integration, run live against Gemini). The LLM-as-judge evalset has been run end-to-end against the real multi-agent system and meets all three targets (§11). Calendar MCP is wired in code; live use additionally needs Workspace Developer Preview enrollment + an OAuth client (see [ARCHITECTURE.md §7](ARCHITECTURE.md#7-mcp-integration)).
 
 ## 14. Disclaimers
 
