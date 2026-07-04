@@ -25,6 +25,7 @@ dependencies = [
     # Pocket CFO additions:
     "pyyaml>=6.0.3",       # card-benefits reference skill (cards.yaml) + eval configs
     "python-dotenv>=1.2.2", # load GEMINI_API_KEY from .env when running our own scripts
+    "mcp>=1.9.0",          # Model Context Protocol client (Calendar agent -> Calendar MCP)
 ]
 requires-python = ">=3.11,<3.14"
 

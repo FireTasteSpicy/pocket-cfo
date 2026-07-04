@@ -38,6 +38,7 @@ from google.adk.models import Gemini
 from google.adk.tools import agent_tool
 from google.genai import types
 
+from app.agents.calendar_agent import calendar_agent
 from app.agents.card_strategy import card_strategy_agent
 from app.agents.categorization import categorization_agent
 from app.agents.ingestion import ingestion_agent
@@ -106,6 +107,8 @@ Route each request:
   bonus?" -> delegate to `card_strategy_agent`.
 - "What category is this?" or correcting a category -> delegate to
   `categorization_agent`.
+- Reminders, upcoming money-dates, or "which card should I pay this bill with?" ->
+  delegate to `calendar_agent`.
 - "I spent $X cash/on <thing>" -> call `log_manual_expense`, then confirm briefly.
 - "How am I doing on <category>?" / budget questions -> call `get_budget_status`.
 
@@ -140,6 +143,7 @@ root_agent = Agent(
         agent_tool.AgentTool(agent=ingestion_agent),
         agent_tool.AgentTool(agent=categorization_agent),
         agent_tool.AgentTool(agent=card_strategy_agent),
+        agent_tool.AgentTool(agent=calendar_agent),
     ],
 )
 
