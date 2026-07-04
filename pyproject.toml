@@ -26,6 +26,12 @@ dependencies = [
     "pyyaml>=6.0.3",       # card-benefits reference skill (cards.yaml) + eval configs
     "python-dotenv>=1.2.2", # load GEMINI_API_KEY from .env when running our own scripts
     "mcp>=1.9.0",          # Model Context Protocol client (Calendar agent -> Calendar MCP)
+    # Calendar API fallback (app/tools/calendar_api.py): a plain OAuth "Desktop app"
+    # client against the standard, GA Calendar v3 API -- no Workspace Developer
+    # Preview needed, unlike the hosted Calendar MCP endpoint above.
+    "google-api-python-client>=2.198.0,<3.0.0",
+    "google-auth-oauthlib>=1.4.0,<2.0.0",
+    "google-auth>=2.55.0,<3.0.0",
 ]
 requires-python = ">=3.11,<3.14"
 

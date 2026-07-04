@@ -9,9 +9,13 @@ MCP INTEGRATION (consumption over creation): the agent consumes Google's OFFICIA
 hosted Calendar MCP server (calendarmcp.googleapis.com) over streamable HTTP —
 never a community server, per the course's security guidance. The connection is
 built only when GOOGLE_CALENDAR_MCP_ENDPOINT is configured, so the module imports
-cleanly with or without credentials. A google-api-python-client FunctionTool path
-is the documented fallback for when Developer-Preview access to the hosted server
-isn't available.
+cleanly with or without credentials. A google-api-python-client FunctionTool
+(app/tools/calendar_api.py) is the live fallback for when Developer-Preview
+access to the hosted MCP server isn't available: it writes real events via the
+standard, GA Calendar v3 API using a plain OAuth "Desktop app" client — no
+special program needed. Both write paths are attached only when their
+credentials are actually present (see the guarded checks below); with neither
+configured, the agent still works with its reasoning-only tools.
 
 The agent's *reasoning* (which dates matter, and routing a bill to a card that
 needs the spend) is deterministic and tested in app/tools/calendar_events.py; the
@@ -27,6 +31,10 @@ from google.adk.models import Gemini
 from google.genai import types
 
 from app.tools.aggregate import compute_card_progress
+from app.tools.calendar_api import (
+    calendar_write_available,
+    sync_money_dates_to_calendar,
+)
 from app.tools.calendar_events import compute_money_dates, suggest_bill_routing
 from app.tools.cards import load_cards
 from app.tools.ledger import load_ledger
@@ -114,12 +122,17 @@ def build_calendar_mcp_toolset():
     )
 
 
-# The agent's tools: always the deterministic reasoning tools, plus the live MCP
-# toolset when it is configured (Developer-Preview credentials present).
+# The agent's tools: always the deterministic reasoning tools, plus whichever
+# live write mechanism is actually configured -- the hosted MCP server
+# (Developer-Preview creds present) and/or the Calendar API fallback (a Desktop
+# OAuth token present, via scripts/calendar_oauth_setup.py). Neither being
+# configured is fine: the agent still works with reasoning-only tools.
 _tools = [list_money_dates, suggest_bill_card]
 _mcp_toolset = build_calendar_mcp_toolset()
 if _mcp_toolset is not None:
     _tools.append(_mcp_toolset)
+if calendar_write_available():
+    _tools.append(sync_money_dates_to_calendar)
 
 
 _CALENDAR_INSTRUCTION = (
@@ -127,9 +140,12 @@ _CALENDAR_INSTRUCTION = (
 You are the Calendar agent for Pocket CFO. You manage the user's money-dates and
 reason across them -- you do not just store dates.
 
-- "What's coming up?" / "Add my money reminders" -> call `list_money_dates`, and if
-  a calendar tool is available, create those events (payday, payment due, and each
-  card's bonus deadline), scheduling a nudge ahead of each.
+- "What's coming up?" -> call `list_money_dates` and report the dates.
+- "Add my money reminders to my calendar" / "sync my calendar" -> call
+  `sync_money_dates_to_calendar` if it is available to actually create the events
+  (payday, payment due, each card's bonus deadline) in the user's real calendar;
+  report how many were created. If that tool isn't available, fall back to
+  `list_money_dates` and explain the events aren't synced to a live calendar yet.
 - When a bill is coming due, call `suggest_bill_card`. If an open card bonus needs
   the spend, suggest routing the bill to that card and say why -- e.g. "pay the
   electricity bill with the Amex to help close its minimum spend before the deadline".

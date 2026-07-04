@@ -207,7 +207,8 @@ tools/a2a-inspector/
 *.pem
 *-key.json
 credentials*.json
-token*.json          # cached OAuth tokens (Calendar MCP)
+# cached OAuth tokens (Calendar MCP / Calendar API):
+token*.json
 
 # Pocket CFO runtime artifacts (never commit real financial data or eval traces).
 # NOTE: .gitignore has NO inline comments — keep each comment on its own line.
@@ -216,5 +217,9 @@ app/data/ledger.json
 app/data/corrections.json
 # agents-cli eval traces + grade results:
 artifacts/
+# Google Calendar API credentials (OAuth client secret + the token it produces).
+# Real secrets — download the client secret yourself, never commit either file:
+app/data/calendar_client_secret.json
+app/data/calendar_token.json
 # ...but DO track the synthetic sample docs used for demos/tests:
 !app/data/seed/

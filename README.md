@@ -221,6 +221,26 @@ Then try:
 - _"I'm about to spend $500 on a flight — which card should I use?"_ ← the hero
 - _"I spent $30 cash on lunch today"_
 - _"Just pay my Amex bill for me"_ → it explains it can only remind, not pay.
+- _"Add my money reminders to my calendar"_ → creates real events (see below).
+
+### Calendar (live, no Workspace Developer Preview needed)
+
+The official hosted Calendar MCP server needs Workspace Developer-Preview
+enrollment. The working alternative — a plain OAuth "Desktop app" client against
+the standard, GA Calendar API — needs none of that:
+
+```bash
+# One-time, in Cloud Console for your GCP project:
+#  1. Enable the "Google Calendar API".
+#  2. Configure the OAuth consent screen if you haven't already (External is fine).
+#  3. Credentials -> Create Credentials -> OAuth client ID -> Desktop app -> Create
+#     -> Download JSON -> save as app/data/calendar_client_secret.json (gitignored).
+
+uv run python scripts/calendar_oauth_setup.py   # opens a URL; sign in and Allow once
+```
+
+After that, the Calendar agent's `sync_money_dates_to_calendar` tool creates real
+payday / payment-due / bonus-deadline events in your actual Google Calendar.
 
 ## 11. Evaluation
 
@@ -266,7 +286,7 @@ The deterministic cores — redaction, injection detection, reconciliation, the 
 | 3 — Concierge surface (Calendar MCP, dashboard) | ✅ Complete |
 | 4 — Prove & polish (LLM-as-judge evals, writeup) | ✅ Complete — validated live on Vertex AI |
 
-**62 tests pass** (57 unit, deterministic, no API key required; 5 integration, run live against Gemini). The LLM-as-judge evalset has been run end-to-end against the real multi-agent system and meets all three targets (§11). Calendar MCP is wired in code; live use additionally needs Workspace Developer Preview enrollment + an OAuth client (see [ARCHITECTURE.md §7](ARCHITECTURE.md#7-mcp-integration)).
+**62 unit tests pass** (deterministic, no API key required) plus 5 integration tests run live against Gemini — 67 total. The LLM-as-judge evalset has been run end-to-end against the real multi-agent system and meets all three targets (§11). Calendar has two live write paths: the official hosted MCP server (needs Workspace Developer Preview) and a working `google-api-python-client` fallback that needs only a plain OAuth client (§10) — see [ARCHITECTURE.md §7](ARCHITECTURE.md#7-mcp-integration).
 
 ## 14. Disclaimers
 

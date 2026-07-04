@@ -158,8 +158,14 @@ Pocket CFO **consumes** MCP servers rather than building custom connectors.
   (`McpToolset` + `StreamableHTTPConnectionParams`, built only when the endpoint env
   var is set). Google-published and pre-vetted — the safe choice over unvetted public
   registries. Requires Workspace Developer-Preview enrollment.
-- **Fallback:** a `google-api-python-client` Calendar-v3 FunctionTool path when
-  Developer-Preview access isn't available.
+- **Live fallback (implemented):** [`app/tools/calendar_api.py`](app/tools/calendar_api.py)
+  is a `google-api-python-client` wrapper over the standard, GA Calendar v3 API,
+  authenticated with a plain OAuth "Desktop app" client — no Developer-Preview
+  enrollment needed. One-time consent via
+  [`scripts/calendar_oauth_setup.py`](scripts/calendar_oauth_setup.py) saves a
+  refresh token; the Calendar agent then attaches its `sync_money_dates_to_calendar`
+  tool automatically (guarded the same way as the MCP toolset — absent without a
+  token, so the agent still works reasoning-only on a clean checkout).
 
 Per course guidance: never pass raw credentials to community/public servers; prefer
 officially published servers. Pocket CFO only connects to Google-published endpoints.

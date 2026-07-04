@@ -199,7 +199,9 @@ Scenario: Report category budget vs actual
 - The five agents are wired through the Orchestrator with Ingestion sandboxed.
 - The `card-benefits` reference skill and the `statement-reconciler` script skill are
   implemented.
-- Google Calendar MCP wiring is present (live requires Developer-Preview creds).
+- Google Calendar MCP wiring is present (live requires Developer-Preview creds); a
+  live, working fallback (`app/tools/calendar_api.py`, the standard GA Calendar v3
+  API via a plain OAuth Desktop client) creates real events without that program.
 - No secrets in the repo; Semgrep + gitleaks pre-commit hook active and passing.
 - Every source file carries comments on implementation, design, and behavior.
 - The README, this spec, and the architecture doc are current with the built system.
