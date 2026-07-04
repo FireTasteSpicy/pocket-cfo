@@ -1,7 +1,7 @@
 # Pocket CFO — Kaggle Writeup (draft)
 
 **Title:** Pocket CFO — a privacy-first finance concierge that reasons about your money
-**Subtitle:** A five-agent Google ADK system that answers "which card should I use, right now?" — and never moves your money.
+**Subtitle:** A privilege-separated Google ADK system that answers "which card should I use, right now?" — and never moves your money.
 **Track:** Concierge Agents
 
 > Draft for the ≤2,500-word Kaggle Writeup. Trim/expand a section before submitting.
@@ -71,27 +71,31 @@ they're one reasoning engine surfaced two ways.
 
 ## Architecture
 
-Pocket CFO is **multi-agent where security postures differ, and skills-based where the
-work is just procedure.** The course is explicit that multi-agent designs are overkill
-*except* when agents need different privilege levels — and Pocket CFO's do. The agent
+Pocket CFO is **multi-agent only where security postures differ; everything else is
+a tool or Agent Skill on the Orchestrator.** The course is explicit that multi-agent
+designs are overkill *except* when agents need different privilege levels. The agent
 that touches raw bank statements must be sandboxed and low-privilege; the agent that
 writes to your calendar needs write access. Those postures are incompatible, so they
-are separate agents. Everything merely procedural is an Agent Skill on a shared agent.
+are separate agents. Categorization and the "which card?" reasoning don't need a
+privilege boundary of their own, so they're direct Orchestrator tools instead — an
+earlier revision gave them their own agents, and review found that added an LLM
+round-trip with no privilege boundary to show for it, which contradicted this
+project's own design principle. Collapsing them into tools removed the extra hop
+with no loss of reasoning quality.
 
-**The five agents:**
+**The three agents:**
 
 - **Ingestion** (🔒 sandboxed) — the *only* agent that touches raw documents. Parses
   statements/receipts, deduplicates receipt-vs-statement entries, and redacts PII
   before anything downstream sees it. Treats document text as **data, never
-  instructions.**
-- **Categorization** — assigns each transaction a budget category *and* a card-bonus
-  category in one pass; learns from corrections.
-- **Card Strategy** (💳) — tracks minimum-spend progress and deadlines, knows each
-  card's multipliers, and answers "which card for this purchase?".
+  instructions.** Carries the `statement-reconciler` Skill.
 - **Calendar** (🔒 write access) — manages payday, payment-due, and bonus-deadline
-  events via the Google Calendar MCP server, and reasons across them.
+  events via the Google Calendar MCP server (or a plain-OAuth fallback), and reasons
+  across them.
 - **Orchestrator** — the front door. Routes questions, handles conversational manual
-  entry, and delegates to the specialists.
+  entry, categorizes transactions, answers "which card should I use?" (💳), and
+  delegates to the two specialists when their privilege is actually needed. Carries
+  the `card-benefits` Skill.
 
 **A key design decision: deterministic where correctness is non-negotiable.** PII
 redaction, receipt/statement reconciliation, and the card-strategy scoring are
@@ -137,34 +141,36 @@ The project follows the course methodology deliberately:
   the Semgrep pre-commit hook, and an AI-Studio-first `.env.example` with the real
   `.env` gitignored.
 - **Test-first.** Redaction, injection detection, reconciliation, categorization, and
-  the card-strategy hero were each written test-first. The suite is **57
-  deterministic unit tests that need no API key**, plus an LLM-as-judge evalset whose
-  PII-containment and injection-rejection metrics are enforced by code (so they hold a
-  perfect 5.0).
+  the card-strategy hero were each written test-first. The suite is **77
+  deterministic unit tests that need no API key**, plus an LLM-as-judge evalset with
+  a deterministic *mechanism-level* metric (`ledger_integrity`, which reads the
+  actual persisted ledger rather than trusting the model's narration — see
+  [`docs/eval-methodology.md`](eval-methodology.md)) alongside the narration-level
+  PII-containment and injection-rejection checks.
 
-**All six course concepts are demonstrated:** ADK multi-agent (five agents + a
-delegating orchestrator), MCP (the Google Calendar server), Antigravity (the project
-opens and drives in it), Security (redaction, injection defense, read-only gate,
-privilege separation, secret scanning), Deployability (`agents-cli scaffold enhance
---deployment-target agent_runtime`), and Agent Skills (`card-benefits` reference +
-`statement-reconciler` script). The requirement is three; Pocket CFO shows all six.
+**Five of six course concepts are demonstrated:** ADK multi-agent (Orchestrator +
+two privilege-separated specialists — multi-agent used only where privilege
+genuinely differs), MCP (the Google Calendar server), Security (redaction,
+injection defense, read-only gate, privilege separation, secret scanning),
+Deployability (scaffolded by `agents-cli` for the Agent Runtime target), and Agent
+Skills (`card-benefits` reference + `statement-reconciler` script, wired via ADK's
+`SkillToolset`). The requirement is three; Pocket CFO shows five. The sixth,
+Antigravity, isn't used — this project was built with Claude Code instead.
 
 ## Results
 
-- The five-agent system is wired through the Orchestrator, with the Ingestion agent
-  sandboxed. The dashboard renders filling minimum-spend and budget bars from the
-  **real** redacted ledger (nothing mocked).
-- 62 tests pass: 57 unit (deterministic, no API key, covering every SPEC §3
+- The three-agent system is wired through the Orchestrator, with the Ingestion and
+  Calendar agents privilege-separated. The dashboard renders filling minimum-spend
+  and budget bars from the **real** redacted ledger (nothing mocked).
+- 82 tests pass: 77 unit (deterministic, no API key, covering every SPEC §3
   scenario) plus 5 integration tests run live against Gemini.
-- The evalset was run end-to-end against the live multi-agent system on Vertex AI
-  and met every target: **PII containment 5.00/5.0**, **injection rejection
-  5.00/5.0** (both non-negotiable), **response quality 4.83/4.0**. The hero case
-  recommended *"Put it on the American Express Gold — it clears your $3,000
-  minimum spend requirement with 8 days to spare... Heads up, this $500 purchase
-  would put your Travel budget $168.33 over its $1,500 monthly limit"* — the full
-  decision logic (bonus urgency + budget guardrail) executing correctly live.
+- The evalset (10 cases, 4 metrics) was run end-to-end against the live
+  multi-agent system on Vertex AI — see the scorecard below and
+  [`docs/eval-methodology.md`](eval-methodology.md) for what each metric proves.
 - The secret-scan pre-commit hook, PII redaction, and injection defense are all
   demonstrated with reproducible, captured evidence.
+
+<!-- EVAL_SCORECARD -->
 
 ## What's next
 

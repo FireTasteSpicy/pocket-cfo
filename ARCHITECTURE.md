@@ -12,7 +12,15 @@ general-purpose agent has largely replaced multi-agent swarms — *except* when 
 need genuinely different security postures. Pocket CFO uses separate agents precisely
 where that holds: the **Ingestion** agent touches raw documents and must be
 sandboxed; the **Calendar** agent needs external write access. Everything else that
-looks like a capability is a **Skill** on a shared agent, not a new agent.
+looks like a capability is a **tool or Skill on the Orchestrator**, not a new agent.
+
+An earlier revision shipped Categorization and Card Strategy as two additional
+agents. Review found both were "standard privilege" — thin wrappers that phrased a
+deterministic tool's output and added no privilege boundary of their own, which
+contradicted this very principle and cost an extra LLM round-trip on the hero path
+for no reasoning benefit. They are now `categorize_transaction` / `record_correction`
+and `which_card` / `card_progress_summary` — plain tools on the Orchestrator
+(`app/agent.py`). Three agents remain: Orchestrator, Ingestion, Calendar.
 
 **One categorization engine, two consumers.** Categorization is computed once and
 consumed by both the budget tracker and the card strategist — so the two features
@@ -32,50 +40,42 @@ model orchestrates and phrases; the code decides.
 | | |
 |---|---|
 | **Privilege** | Sandboxed, low-privilege. The only agent that reads raw documents. |
-| **Input** | A statement (CSV) or receipt from the user. |
+| **Input** | A statement (CSV) or receipt from the user, passed VERBATIM by the Orchestrator. |
 | **Output** | Zero or more **redacted** Transaction records in the ledger. |
-| **Tools** | `import_bank_statement`, `import_receipt` (wrap the deterministic pipeline). |
+| **Tools** | `import_bank_statement`, `import_receipt` (wrap the deterministic pipeline), plus the `statement-reconciler` Skill. |
 | **Guarantees** | (a) PII redacted before output; (b) receipt/statement duplicates collapsed; (c) document text treated as **data, never instructions**. |
 
 Redaction and injection defense live here specifically *because* this is the trust
 boundary — untrusted external content enters through this agent and nowhere else.
+The Orchestrator's instruction requires passing document text to this agent
+character-for-character (never summarized or paraphrased first) precisely because
+these checks run on the literal text it receives — see §5 for the failure that
+motivated the rule.
 
-### 2.2 Categorization Agent — [`app/agents/categorization.py`](app/agents/categorization.py)
+### 2.2 Calendar Agent 🔒 — [`app/agents/calendar_agent.py`](app/agents/calendar_agent.py)
 | | |
 |---|---|
-| **Privilege** | Standard. Never touches raw documents. |
-| **Input** | An uncategorized Transaction / merchant / purchase phrase. |
-| **Output** | A **budget category** and a **card-bonus category** from one classification. |
-| **Tools** | `categorize_transaction`, `record_correction`. |
-
-The deterministic keyword engine (`app/tools/categorize.py`) is applied as a first
-pass at ingest; the agent refines ambiguous merchants and records corrections.
-
-### 2.3 Card Strategy Agent 💳 — [`app/agents/card_strategy.py`](app/agents/card_strategy.py)
-| | |
-|---|---|
-| **Privilege** | Standard. Reads the ledger and the card-benefits reference. |
-| **Input** | A prospective purchase `{amount, category}`, or a progress query. |
-| **Output** | A single-card recommendation with a one-sentence rationale, or a progress summary. |
-| **Tools** | `which_card`, `card_progress_summary`. |
-| **Decision logic** | Bonus progress, deadline proximity, multiplier, budget headroom (SPEC.md §2). |
-
-### 2.4 Calendar Agent 🔒 — [`app/agents/calendar_agent.py`](app/agents/calendar_agent.py)
-| | |
-|---|---|
-| **Privilege** | Calendar write-access (via MCP). No access to raw documents. |
+| **Privilege** | Calendar write-access (via MCP or the OAuth fallback). No access to raw documents. |
 | **Input** | Ledger-derived dates + card deadlines + payday. |
 | **Output** | Calendar events; proactive routing nudges. |
-| **Tools** | `list_money_dates`, `suggest_bill_card`, + Google Calendar MCP toolset. |
+| **Tools** | `list_money_dates`, `suggest_bill_card`, `sync_money_dates_to_calendar` (when configured), + the Google Calendar MCP toolset (when configured). |
 | **Reasoning** | Reasons across dates (e.g. "bill due in 3 days AND Amex minimum short → route it there"). |
 
-### 2.5 Orchestrator / Concierge Agent 🧭 — [`app/agent.py`](app/agent.py)
+### 2.3 Orchestrator / Concierge Agent 🧭 — [`app/agent.py`](app/agent.py)
 | | |
 |---|---|
-| **Privilege** | Standard. The user-facing front door. |
-| **Output** | Answers, or delegated sub-tasks routed to the specialists. |
-| **Tools** | `log_manual_expense`, `get_budget_status`, and an `AgentTool` for each of the four specialists. |
-| **Responsibilities** | Intent routing, Q&A synthesis, conversational manual entry, read-only refusals. |
+| **Privilege** | Standard. The user-facing front door, and the only place categorization and card-strategy reasoning happen. |
+| **Input** | Any natural-language request. |
+| **Output** | Answers, or delegated sub-tasks routed to Ingestion / Calendar. |
+| **Tools** | `log_manual_expense`, `get_budget_status`, `categorize_transaction`, `record_correction`, `which_card`, `card_progress_summary`, the `card-benefits` Skill, and an `AgentTool` for each of the two specialists. |
+| **Responsibilities** | Intent routing, Q&A synthesis, conversational manual entry, categorization (deterministic keyword map first, its own judgment on an "Uncategorized" result), the "which card?" hero recommendation, and read-only refusals. |
+
+Categorization and card-strategy reasoning live directly on the Orchestrator rather
+than behind a delegation hop: both are standard-privilege, both read the same
+ledger the Orchestrator already has access to, and neither benefits from a
+separate LLM turn to reach a verdict a Python function (`app/tools/categorize.py`,
+`app/tools/card_strategy.py`) already computed. Delegation is reserved for the two
+agents whose privilege is actually different.
 
 ## 3. Data flow: ingesting a statement
 
@@ -100,23 +100,28 @@ sequenceDiagram
 ## 4. Data flow: the "which card?" recommendation
 
 The hero interaction — the multi-variable decision no human runs at the register.
+No delegation hop: `which_card` is a tool directly on the Orchestrator, so this is
+one LLM turn plus a deterministic function call, not an agent-to-agent handoff.
 
 ```mermaid
 sequenceDiagram
     actor User
     participant Orch as Orchestrator
-    participant Card as Card Strategy Agent
-    participant Bene as card-benefits skill
+    participant Fn as which_card() [app/tools/card_strategy.py]
     participant Ledger as Redacted Ledger
     User->>Orch: "Which card for a $500 flight?"
-    Orch->>Card: which_card("flight", 500)
-    Card->>Card: categorize -> TRAVEL
-    Card->>Bene: load card terms (cards.yaml)
-    Card->>Ledger: compute per-card progress + budget headroom
-    Card->>Card: score each card (deterministic, SPEC.md §2)
-    Card-->>Orch: Amex + rationale
+    Orch->>Fn: which_card("flight", 500)
+    Fn->>Fn: categorize -> TRAVEL
+    Fn->>Ledger: compute per-card progress + budget headroom
+    Fn->>Fn: score each card (deterministic, SPEC.md §2)
+    Fn-->>Orch: Amex + deciding_factor + rationale
     Orch-->>User: "Put it on the Amex — clears your $3k minimum with 9 days to spare, travel is 3x."
 ```
+
+If asked to explain a card's exact terms, the Orchestrator may additionally consult
+the `card-benefits` Skill (`.agents/skills/card-benefits/resources/cards.yaml`) for
+the documented policy — `which_card` already computes the live numbers correctly,
+so the Skill is a reference for explanation, not the source of the recommendation.
 
 ## 5. Security architecture
 
@@ -139,14 +144,21 @@ flagged. See the captured secret-block loop in
 
 ## 6. Agent Skills
 
-Skills use progressive disclosure — ~50 tokens of metadata sit in context until a
-skill triggers, at which point its `SKILL.md` loads and its scripts run without
-entering the token window.
+Both skills are wired via ADK's real `SkillToolset` (`google.adk.tools.skill_toolset`)
+over `load_skill_from_dir`, not simulated with plain prose in the instruction. Each
+skill attaches to its agent as four meta-tools — `list_skills`, `load_skill`,
+`load_skill_resource`, `run_skill_script` — so only the skill's *name and one-line
+description* sit in the agent's always-loaded context. The full `SKILL.md` body and
+any resource/script file are fetched on demand only when the agent decides the
+skill is relevant, via `load_skill`/`load_skill_resource`/`run_skill_script`. That
+progressive disclosure is genuinely load-bearing here: `cards.yaml`'s full per-card
+terms and `reconcile.py`'s matching policy never occupy context on turns that don't
+need them.
 
-| Skill | Pattern | Contents |
-|-------|---------|----------|
-| **card-benefits** | Reference | `resources/cards.yaml` — static per-card min-spend target, deadline, multipliers. The model reads exact numbers instead of hallucinating them. |
-| **statement-reconciler** | Script | `scripts/reconcile.py` — a thin CLI over the tested `app/tools/reconcile.py` (single source of truth) that matches receipts to statement lines across settlement lag + tips. |
+| Skill | Pattern | Attached to | Contents |
+|-------|---------|-------------|----------|
+| **card-benefits** | Reference | Orchestrator | `resources/cards.yaml` — static per-card min-spend target, deadline, multipliers. Consulted for *explaining* a card's terms; `which_card` computes the live numbers directly, not through the skill. |
+| **statement-reconciler** | Script | Ingestion agent | `scripts/reconcile.py` — a thin CLI over the tested `app/tools/reconcile.py` (single source of truth) that matches receipts to statement lines across settlement lag + tips. Consulted for *explaining* why two lines were or weren't merged; the actual matching always runs in code during ingest. |
 
 ## 7. MCP integration
 
@@ -179,8 +191,14 @@ optional; the core product is fully demonstrable without it.
 ## 9. Testing & evaluation strategy
 
 1. **Outcome-based pytest** (`tests/unit/`, `tests/integration/`) — assert on final
-   return values and ledger state. 57 unit tests, no API key required; they pin every
-   SPEC §3 scenario, including the security invariants.
-2. **LLM-as-judge evalset** (`tests/eval/`) — score categorization, PII containment,
-   min-spend math, and injection rejection across a synthetic dataset. PII containment
-   and injection rejection are also enforced by deterministic metrics.
+   return values and ledger state. 77 unit tests, no API key required; they pin every
+   SPEC §3 scenario, including the security invariants, correction-key edge cases,
+   date-robustness of the seed data, and the card-strategy deadline-lapse fallback.
+2. **LLM-as-judge evalset** (`tests/eval/`, 10 cases) — scored on four metrics: two
+   narration-level deterministic checks (`pii_containment`, `injection_rejection`),
+   one mechanism-level deterministic check (`ledger_integrity` — reads the actual
+   persisted ledger after the run, not the model's claim about what happened), and
+   `custom_response_quality` (LLM-as-judge vs. each case's reference, checking
+   completeness of reasoning, not just conclusion-matching). See
+   [`docs/eval-methodology.md`](docs/eval-methodology.md) for why `ledger_integrity`
+   exists and what its known limitations are.

@@ -58,11 +58,11 @@ Three things here genuinely require reasoning, not rules:
 
 ## 4. Architecture
 
-Pocket CFO is **multi-agent where security postures differ, and skills-based where the work is just procedure.** The agent that touches raw bank statements must be sandboxed and low-privilege; the agent that writes to your calendar needs write access. Those incompatible postures are the justification for separate agents. Everything merely procedural is an **Agent Skill** on a shared agent.
+Pocket CFO is **multi-agent only where security postures differ; everything else is a tool or Agent Skill on the Orchestrator.** The agent that touches raw bank statements must be sandboxed and low-privilege; the agent that writes to your calendar needs write access. Those incompatible postures are the justification for the two separate specialist agents. Categorization and the "which card?" reasoning don't need a privilege boundary of their own — both are standard-privilege and both read the same ledger the Orchestrator already has — so they're plain tools it calls directly, in the same turn it reasons in.
 
 ```mermaid
 flowchart TD
-    User([User]) <--> Orch[Orchestrator / Concierge Agent]
+    User([User]) <--> Orch[Orchestrator / Concierge Agent<br/>categorize · which_card · budget Q&A]
     Docs[Statements & Receipts]
 
     subgraph Sandbox["Sandboxed · Low-Privilege"]
@@ -71,48 +71,54 @@ flowchart TD
 
     Docs --> Ingest
     Ingest -->|redacted transactions| Ledger[(Redacted Ledger)]
-    Orch --> Cat[Categorization Agent]
-    Orch --> Card[Card Strategy Agent]
     Orch --> Cal[Calendar Agent]
-    Orch -.conversational entry.-> Ledger
-    Ledger <--> Cat
-    Ledger --> Card
-    Cal <-->|MCP| GCal[(Google Calendar)]
-    Card --> Dash[Dashboard]
+    Orch <-->|read + write| Ledger
+    Cal <-->|MCP / OAuth| GCal[(Google Calendar)]
+    Orch --> Dash[Dashboard]
     Ledger --> Dash
 ```
 
-### The five agents
+### The three agents
 
 | Agent | Privilege | Responsibility |
 |-------|-----------|----------------|
 | **Ingestion** | 🔒 Sandboxed, low-privilege | The _only_ agent that touches raw documents. Parses statements/receipts, deduplicates receipt-vs-statement entries, and **redacts PII before anything downstream sees it.** Treats document text as **data, never instructions.** |
-| **Categorization** | Standard | Assigns each transaction a budget category _and_ a card-bonus category in one pass. Learns from user corrections. |
-| **Card Strategy** | Standard | Tracks minimum-spend progress and deadlines per card, knows each card's multipliers, and answers "which card for this purchase?" |
-| **Calendar** | 🔒 Calendar write-access | Manages payday, statement-close, payment-due, and bonus-deadline events via the Google Calendar MCP server. |
-| **Orchestrator** | Standard | The front door. Routes natural-language questions, handles conversational manual entry, and delegates to the specialists. |
+| **Calendar** | 🔒 Calendar write-access | Manages payday, statement-close, payment-due, and bonus-deadline events via the Google Calendar MCP server (or the OAuth fallback). |
+| **Orchestrator** | Standard | The front door. Routes natural-language questions, handles conversational manual entry, categorizes transactions, answers "which card?", and delegates to the two specialists when their privilege is actually needed. |
+
+An earlier revision shipped Categorization and Card Strategy as two more agents.
+Review found both added an LLM round-trip with no privilege boundary to show for
+it — a violation of the project's own "multi-agent only where privilege differs"
+rule — so they were collapsed into direct Orchestrator tools (`categorize_transaction`
+/ `record_correction` and `which_card` / `card_progress_summary`). See
+[`ARCHITECTURE.md` §1](ARCHITECTURE.md#1-design-principles) for the full reasoning.
 
 **Design decision — deterministic where correctness is non-negotiable.** PII redaction, receipt/statement reconciliation, and the card-strategy scoring are implemented as **tested Python** (`app/tools/`), not prompt instructions. The model orchestrates and phrases; the code decides. This is the course's "shift intelligence left / write software, not rules" principle — and it's what lets the security and hero-recommendation behaviors be provably correct rather than probabilistic. See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`SPEC.md`](SPEC.md).
 
 ### Agent Skills
 
-| Skill | Type | Purpose |
-|-------|------|---------|
-| `card-benefits` | Reference | `resources/cards.yaml` — per-card minimum-spend target, deadline, and multipliers. The model **reads** exact numbers instead of hallucinating them. |
-| `statement-reconciler` | Script | `scripts/reconcile.py` — the dedup logic that matches receipts to statement lines across settlement lag and tips. |
+Both wired via ADK's real `SkillToolset` (progressive disclosure — only a name and
+one-line description sit in context until the agent decides to load the rest).
+
+| Skill | Type | Attached to | Purpose |
+|-------|------|-------------|---------|
+| `card-benefits` | Reference | Orchestrator | `resources/cards.yaml` — per-card minimum-spend target, deadline, and multipliers. The model **reads** exact numbers to explain them, instead of hallucinating them. |
+| `statement-reconciler` | Script | Ingestion agent | `scripts/reconcile.py` — documents the dedup policy that matches receipts to statement lines across settlement lag and tips (the matching itself always runs in code). |
 
 ## 5. Course concepts demonstrated
 
-The hackathon requires **at least three** of six concepts. Pocket CFO targets all six:
+The hackathon requires **at least three** of six concepts.
 
 | Concept | Demonstrated in | Where |
 |---------|-----------------|-------|
-| **Agent / Multi-agent system (ADK)** | Five ADK 2.3 agents with a delegating orchestrator + privilege separation | Code |
+| **Agent / Multi-agent system (ADK)** | Three ADK 2.3 agents (Orchestrator, Ingestion, Calendar) — multi-agent only where privilege genuinely differs, with the rest as tools on a delegating orchestrator | Code |
 | **MCP Server** | Google Calendar MCP for event management | Code |
-| **Antigravity** | Project can be opened/driven in Antigravity (agents-cli works with any coding agent) | Video |
 | **Security features** | PII redaction, prompt-injection defense, read-only gate, privilege separation, Semgrep + gitleaks pre-commit | Code + Video |
-| **Deployability** | `agents-cli scaffold enhance --deployment-target agent_runtime` → Cloud Run / Agent Runtime | Video |
-| **Agent Skills** | `card-benefits` (reference) + `statement-reconciler` (script), built to the Agent Skills spec | Code |
+| **Deployability** | Scaffolded by `agents-cli` for the Agent Runtime deployment target; not deployed to a live Cloud Run/Agent Runtime endpoint for this submission | Code |
+| **Agent Skills** | `card-benefits` (reference, on the Orchestrator) + `statement-reconciler` (script, on the Ingestion agent), wired via ADK's `SkillToolset` | Code |
+
+Pocket CFO demonstrates five of the six recognized concepts directly in code. The
+sixth, Antigravity, isn't used — this project was built with Claude Code instead.
 
 ## 6. Security & privacy
 
@@ -145,17 +151,20 @@ Privacy is the spine of this project. The promise: **your financial data never l
 kaggle-agents/
 ├── README.md ARCHITECTURE.md SPEC.md   # docs (spec-driven source of truth)
 ├── AGENTS.md                           # always-loaded agent guidance + hard rules
+├── docs/eval-methodology.md            # what each eval metric checks + known limits
 ├── .agents/
 │   ├── CONTEXT.md                      # secure-coding standards + TDD planning gate
 │   └── skills/
 │       ├── card-benefits/{SKILL.md, resources/cards.yaml}
 │       └── statement-reconciler/{SKILL.md, scripts/reconcile.py}
 ├── app/
-│   ├── agent.py                        # Orchestrator (root_agent) + specialist wiring
-│   ├── agents/{ingestion,categorization,card_strategy}.py
+│   ├── agent.py                        # Orchestrator (root_agent): categorization,
+│   │                                   #   which-card, budget Q&A + specialist wiring
+│   ├── agents/{ingestion,calendar_agent}.py   # the two privilege-separated agents
 │   ├── tools/                          # deterministic cores (all unit-tested):
 │   │   ├── redaction.py injection_guard.py reconcile.py ledger.py
 │   │   ├── ingest.py categorize.py cards.py aggregate.py card_strategy.py
+│   │   ├── calendar_api.py calendar_events.py seed_utils.py
 │   ├── models/schemas.py               # Transaction/Card/Budget/CalendarEvent (Pydantic)
 │   └── data/{seed/, ledger.json*, budgets.yaml}   # *ledger.json is gitignored
 ├── tests/{unit/, integration/, eval/}
@@ -257,20 +266,21 @@ make eval-local         # AI-Studio-compatible local harness (tests/eval/run_eva
                          # in case the Vertex-managed eval service (GCS-backed) is unavailable
 ```
 
-**Targets and actual results** (6-case evalset, `tests/eval/datasets/pocket-cfo-dataset.json`, graded live on Vertex AI, 2026-07-05):
+**Four metrics** over a 10-case evalset (`tests/eval/datasets/pocket-cfo-dataset.json`):
 
-| Metric | Target | Result |
-|--------|--------|--------|
-| `pii_containment` (deterministic) | 5.0 (non-negotiable) | **5.00** ✅ |
-| `injection_rejection` (deterministic) | 5.0 (non-negotiable) | **5.00** ✅ |
-| `custom_response_quality` (LLM-as-judge vs. reference) | ≥ 4.0 | **4.83** ✅ |
+| Metric | Level | Target |
+|--------|-------|--------|
+| `pii_containment` | deterministic, narration | 5.0 (non-negotiable) |
+| `injection_rejection` | deterministic, narration | 5.0 (non-negotiable) |
+| `ledger_integrity` | deterministic, **mechanism** — reads the persisted ledger, not the model's claim about it | 5.0 (non-negotiable) |
+| `custom_response_quality` | LLM-as-judge vs. reference, checks completeness of reasoning | ≥ 4.0 |
 
-All three targets are met. The hero case (`which_card_hero`) scored 5/5/5 live: the
-real multi-agent system recommended *"Put it on the American Express Gold — it
-clears your $3,000 minimum spend requirement with 8 days to spare... Heads up, this
-$500 purchase would put your Travel budget $168.33 over its $1,500 monthly limit"* —
-the full SPEC §2 decision logic (bonus urgency + budget guardrail) executing
-correctly end-to-end. The evalset lives in [`tests/eval/`](tests/eval/).
+See [`docs/eval-methodology.md`](docs/eval-methodology.md) for what each metric
+checks, why `ledger_integrity` exists (it closes a real gap where a narration-only
+check scored a run 5.0 even though the security guard never fired), and known
+limitations of this evalset. The evalset lives in [`tests/eval/`](tests/eval/).
+
+*Live results from the latest full run are in [`docs/WRITEUP.md`](docs/WRITEUP.md).*
 
 ## 12. Testing
 
@@ -291,7 +301,7 @@ The deterministic cores — redaction, injection detection, reconciliation, the 
 | 3 — Concierge surface (Calendar MCP, dashboard) | ✅ Complete |
 | 4 — Prove & polish (LLM-as-judge evals, writeup) | ✅ Complete — validated live on Vertex AI |
 
-**62 unit tests pass** (deterministic, no API key required) plus 5 integration tests run live against Gemini — 67 total. The LLM-as-judge evalset has been run end-to-end against the real multi-agent system and meets all three targets (§11). Calendar has two live write paths: the official hosted MCP server (needs Workspace Developer Preview) and a working `google-api-python-client` fallback that needs only a plain OAuth client (§10) — see [ARCHITECTURE.md §7](ARCHITECTURE.md#7-mcp-integration).
+**77 unit tests pass** (deterministic, no API key required) plus 5 integration tests run live against Gemini — 82 total. The LLM-as-judge evalset (10 cases, 4 metrics — §11) has been run end-to-end against the real multi-agent system; see [`docs/WRITEUP.md`](docs/WRITEUP.md) for the latest scorecard. Calendar has two live write paths: the official hosted MCP server (needs Workspace Developer Preview) and a working `google-api-python-client` fallback that needs only a plain OAuth client (§10) — see [ARCHITECTURE.md §7](ARCHITECTURE.md#7-mcp-integration).
 
 ## 14. Disclaimers
 

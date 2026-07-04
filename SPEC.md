@@ -196,7 +196,10 @@ Scenario: Report category budget vs actual
 - PII-redaction and injection-rejection score **5.0** on the LLM-as-judge evalset
   (non-negotiable). Also enforced by deterministic code + unit tests.
 - Categorization scores **≥ 4.0** on the evalset.
-- The five agents are wired through the Orchestrator with Ingestion sandboxed.
+- The three agents (Orchestrator, Ingestion, Calendar) are wired with Ingestion
+  sandboxed and Calendar privilege-separated; categorization and card-strategy
+  reasoning are tools directly on the Orchestrator (no privilege boundary of their
+  own — see ARCHITECTURE.md §1).
 - The `card-benefits` reference skill and the `statement-reconciler` script skill are
   implemented.
 - Google Calendar MCP wiring is present (live requires Developer-Preview creds); a
