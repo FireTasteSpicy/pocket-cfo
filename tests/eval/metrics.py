@@ -17,9 +17,20 @@ class _Verdict(BaseModel):
 
 def evaluate(instance):
     reference = instance.get("reference")
+    # Rubric checks COMPLETENESS of reasoning, not just surface similarity to the
+    # reference -- found in review: a judge given only "grade for accuracy/
+    # relevance/clarity" scored a which-card answer 5/5 even though it never
+    # engaged with the reference's stated deciding factor (why the bonus beats a
+    # rival card's higher multiplier), because the conclusion alone looked right.
     rubric = (
-        "Grade the agent's final response on a 1-5 scale (1 poor, 5 excellent) for "
-        "accuracy, relevance, and clarity."
+        "Grade the agent's final response on a 1-5 scale (1 poor, 5 excellent). "
+        "Check specifically: (a) ACCURACY -- only facts consistent with the "
+        "expected answer and the trace, no invented numbers or claims; "
+        "(b) COMPLETENESS -- does it state the SPECIFIC decision-relevant "
+        "reasoning the expected answer requires (e.g. the deciding factor), not "
+        "just the final conclusion; (c) CLARITY. A correct conclusion reached via "
+        "unstated or unsupported reasoning is NOT a 5 -- penalize it the same as a "
+        "wrong conclusion."
     )
     if reference:
         rubric += (
