@@ -84,6 +84,21 @@ def contains_unredacted_pii(text: str) -> bool:
     return bool(_SSN_RE.search(text) or _CARD_RE.search(text) or _ACCT_RE.search(text))
 
 
+def redact_transaction_with_hits(txn: Transaction) -> tuple[Transaction, list[str]]:
+    """Like redact_transaction, but also reports WHAT was found (e.g. ["account
+    number"]) -- never the value itself. Callers use this to build a deterministic,
+    code-generated confirmation sentence ("the account number was redacted...")
+    instead of leaving that security-relevant fact to a model's discretion to
+    mention or not.
+    """
+    merchant, merchant_hits = redact_text(txn.merchant)
+    notes, notes_hits = redact_text(txn.notes) if txn.notes else (txn.notes, [])
+    updated = txn.model_copy(
+        update={"merchant": merchant, "notes": notes, "pii_redacted": True}
+    )
+    return updated, merchant_hits + notes_hits
+
+
 def redact_transaction(txn: Transaction) -> Transaction:
     """Return a copy of `txn` with free-text fields scrubbed and pii_redacted=True.
 
@@ -91,9 +106,5 @@ def redact_transaction(txn: Transaction) -> Transaction:
     or notes; we scrub both. Numeric fields (amount_cents, dates) are structured
     and safe, so they are left untouched.
     """
-    merchant, _ = redact_text(txn.merchant)
-    notes, _ = redact_text(txn.notes) if txn.notes else (txn.notes, [])
-    # model_copy(update=...) keeps every other field identical and explicit.
-    return txn.model_copy(
-        update={"merchant": merchant, "notes": notes, "pii_redacted": True}
-    )
+    updated, _ = redact_transaction_with_hits(txn)
+    return updated

@@ -13,7 +13,7 @@ install:            ## Install project + dev dependencies into .venv (Python 3.1
 	uv sync --python 3.11
 
 seed:               ## Load the synthetic seed statement into the local ledger (demos/evals)
-	uv run python -c "from pathlib import Path; from app.tools.ingest import ingest_statement_csv; print(ingest_statement_csv(Path('app/data/seed/sample_statement.csv').read_text(), card_id='amex_gold').as_dict())"
+	uv run python -c "from pathlib import Path; from app.tools.ingest import ingest_statement_csv; from app.tools.seed_utils import rebase_csv_dates_to_current_month; csv = rebase_csv_dates_to_current_month(Path('app/data/seed/sample_statement.csv').read_text()); print(ingest_statement_csv(csv, card_id='amex_gold').as_dict())"
 
 playground:         ## Launch the local ADK playground (interactive testing)
 	uv run agents-cli playground

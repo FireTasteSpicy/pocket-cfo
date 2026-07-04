@@ -114,3 +114,20 @@ def test_no_budget_warning_when_within_limit() -> None:
         4_000, BonusCategory.DINING, [card], budgets=budgets, today=_TODAY
     )
     assert rec.budget_warning is None
+
+
+# ── Robustness: the hero degrades gracefully once the bonus deadline passes ──
+def test_recommendation_degrades_to_multiplier_after_bonus_deadline_passes() -> None:
+    """SPEC's hero scenario ('bonus urgency beats a higher multiplier') only holds
+    while the Amex bonus is still live. Once its deadline (2026-07-13 in
+    cards.yaml) has passed, the same $500 travel purchase must fall through to
+    the multiplier winner (Chase, 5x) instead -- this is what makes the demo
+    robust to being run on ANY day, not just before the pinned deadline. Found
+    missing in review: only the "before the deadline" branch had a test."""
+    cards = load_cards()
+    get_card(cards, "amex_gold").min_spend_progress_cents = 250_000  # still $500 short
+    after_deadline = datetime.date(2026, 7, 20)  # 7 days after the 7/13 deadline
+    rec = recommend_card(50_000, BonusCategory.TRAVEL, cards, today=after_deadline)
+    assert rec.card_id == "chase_sapphire"  # the dead bonus no longer wins
+    assert rec.deciding_factor is DecidingFactor.MULTIPLIER
+    assert "5x" in rec.rationale

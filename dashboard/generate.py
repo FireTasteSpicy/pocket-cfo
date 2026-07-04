@@ -8,8 +8,11 @@ traces back to the ledger + cards.yaml.
 
     uv run python dashboard/generate.py     # writes dashboard/index.html
 
-A fixed REFERENCE_DATE keeps the committed sample coherent (the Amex bonus is 8
-days out); regenerate before recording so "days left" reflects the demo day.
+Uses the REAL wall-clock date, not a hardcoded one: the seed statement's dates are
+rebased onto the current calendar month at generation time (see
+app/tools/seed_utils.py) so the budget-vs-actual numbers are always real current-
+month spend, and "days left" on the Amex bonus is always accurate. Regenerate right
+before recording so the numbers reflect the demo day.
 """
 
 from __future__ import annotations
@@ -29,24 +32,30 @@ from app.tools.cards import load_cards
 from app.tools.categorize import categorize
 from app.tools.ingest import ingest_statement_csv
 from app.tools.ledger import load_ledger
+from app.tools.seed_utils import rebase_csv_dates_to_current_month
 
-REFERENCE_DATE = datetime.date(2026, 7, 5)
 OUT_PATH = Path("dashboard/index.html")
 SEED_STATEMENT = Path("app/data/seed/sample_statement.csv")
 
 
-def _build_data():
-    """Ingest the seed statement and compute cards, budgets, and the hero rec."""
+def _build_data(today: datetime.date | None = None):
+    """Ingest the seed statement (rebased to the current month) and compute
+    cards, budgets, and the hero rec -- all as of `today` (real wall-clock date
+    by default; tests can pass a fixed one)."""
+    today = today or datetime.date.today()
     tmp_ledger = Path(tempfile.mkdtemp()) / "ledger.json"
-    ingest_statement_csv(
-        SEED_STATEMENT.read_text(), card_id="amex_gold", ledger_path=tmp_ledger
+    rebased_csv = rebase_csv_dates_to_current_month(
+        SEED_STATEMENT.read_text(), today=today
     )
+    ingest_statement_csv(rebased_csv, card_id="amex_gold", ledger_path=tmp_ledger)
     ledger = load_ledger(tmp_ledger)
     cards = compute_card_progress(load_cards(), ledger)
-    budgets = compute_budget_status(load_budgets(), ledger)
+    budgets = compute_budget_status(
+        load_budgets(), ledger, month=(today.year, today.month)
+    )
     _, bonus = categorize("a $500 flight")
-    rec = recommend_card(50_000, bonus, cards, budgets=budgets, today=REFERENCE_DATE)
-    return cards, budgets, rec
+    rec = recommend_card(50_000, bonus, cards, budgets=budgets, today=today)
+    return cards, budgets, rec, today
 
 
 def _bar(pct: float, over: bool) -> str:
@@ -58,7 +67,7 @@ def _bar(pct: float, over: bool) -> str:
     )
 
 
-def _card_progress_html(cards) -> str:
+def _card_progress_html(cards, today: datetime.date) -> str:
     rows = []
     for c in cards:
         if c.min_spend_target_cents is None:
@@ -67,7 +76,7 @@ def _card_progress_html(cards) -> str:
         target = c.min_spend_target_cents / 100
         remaining = c.min_spend_remaining_cents() / 100
         pct = (c.min_spend_progress_cents / c.min_spend_target_cents) * 100
-        days = (c.bonus_deadline - REFERENCE_DATE).days if c.bonus_deadline else None
+        days = (c.bonus_deadline - today).days if c.bonus_deadline else None
         days_txt = f"{days} days left" if days is not None else ""
         rows.append(
             f"""
@@ -110,7 +119,7 @@ def _budget_html(budgets) -> str:
     return "\n".join(rows)
 
 
-def render(cards, budgets, rec) -> str:
+def render(cards, budgets, rec, today: datetime.date) -> str:
     """Render the full self-contained glassmorphic dashboard HTML."""
     rationale = html.escape(rec.rationale)
     return f"""<!doctype html>
@@ -182,7 +191,7 @@ def render(cards, budgets, rec) -> str:
 
     <section class="glass">
       <h2>Sign-up bonus progress</h2>
-      {_card_progress_html(cards)}
+      {_card_progress_html(cards, today)}
     </section>
 
     <section class="glass">
@@ -198,9 +207,9 @@ def render(cards, budgets, rec) -> str:
 
 
 def main() -> None:
-    cards, budgets, rec = _build_data()
+    cards, budgets, rec, today = _build_data()
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUT_PATH.write_text(render(cards, budgets, rec), encoding="utf-8")
+    OUT_PATH.write_text(render(cards, budgets, rec, today), encoding="utf-8")
     print(f"Wrote {OUT_PATH}  (hero: {rec.card_name} — {rec.deciding_factor.value})")
 
 

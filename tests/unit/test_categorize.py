@@ -6,6 +6,8 @@ in one pass, and LEARN from a user correction so similar future charges follow i
 
 from __future__ import annotations
 
+import json
+
 from app.models import BonusCategory
 from app.tools.categorize import categorize, learn_correction
 
@@ -52,3 +54,37 @@ def test_learns_from_correction(tmp_path) -> None:
     budget_cat, bonus_cat = categorize("AMAZON.COM ORDER", corrections_path=path)
     assert budget_cat == "Groceries"
     assert bonus_cat is BonusCategory.GROCERIES
+
+
+def test_correction_does_not_collide_with_unrelated_merchants(tmp_path) -> None:
+    """A correction keyed 'bar' (from 'Bar Luca') must not hijack merchants that
+    merely CONTAIN 'bar' as a substring without it being a whole word/token --
+    e.g. 'BARNES & NOBLE' or 'CROWBAR' -- since a naive `key in text` substring
+    check would match all three and silently poison unrelated categorization."""
+    path = tmp_path / "corrections.json"
+    learn_correction("Bar Luca", "Dining", BonusCategory.DINING, path=path)
+    # The actual corrected merchant matches (word-boundary match on "bar").
+    assert categorize("Bar Luca receipt", corrections_path=path)[0] == "Dining"
+    # These must NOT be hijacked -- "bar" is not a whole token in either. (Bare
+    # "CROWBAR", not "CROWBAR BREWING", to isolate the correction check from the
+    # UNRELATED built-in "bar " Dining keyword, which would substring-match
+    # "crowbar brewing" across the word boundary regardless of this fix.)
+    assert categorize("BARNES & NOBLE", corrections_path=path)[0] != "Dining"
+    assert categorize("CROWBAR", corrections_path=path)[0] != "Dining"
+
+
+def test_correction_key_skips_stopwords_and_processor_prefixes(tmp_path) -> None:
+    """Found live: correcting 'SQ *THE LOCAL PANTRY' keyed to the stopword 'the'
+    (the first token with >=3 alpha chars), which would then hijack every future
+    merchant containing that common word. The key must skip to 'local' instead."""
+    path = tmp_path / "corrections.json"
+    learn_correction(
+        "SQ *THE LOCAL PANTRY", "Groceries", BonusCategory.GROCERIES, path=path
+    )
+    stored_key = next(iter(json.loads(path.read_text())))
+    assert stored_key not in {"sq", "the"}
+    assert stored_key == "local"
+    # The real merchant still matches...
+    assert categorize("SQ *THE LOCAL PANTRY", corrections_path=path)[0] == "Groceries"
+    # ...but an unrelated merchant that merely contains "the" must NOT be hijacked.
+    assert categorize("THE HOME DEPOT", corrections_path=path)[0] != "Groceries"

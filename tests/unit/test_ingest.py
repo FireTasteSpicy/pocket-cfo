@@ -77,6 +77,31 @@ def test_injection_receipt_imported_as_expense_and_flagged(tmp_path) -> None:
     assert txn.amount_cents == 4783
     assert txn.amount_cents > 0
     assert txn.source == TransactionSource.RECEIPT
+    # The confirmation is CODE-GENERATED, not left to the agent's LLM to narrate
+    # (or drop) -- this is the deterministic fix for a real gap found in review:
+    # an orchestrator that paraphrases the input can't also paraphrase this away.
+    assert "SECURITY" in result.summary()
+    assert "not obeyed" in result.summary()
+
+
+def test_summary_mentions_pii_redaction_only_when_something_was_found(tmp_path) -> None:
+    path = tmp_path / "ledger.json"
+    with_pii = ingest_receipt(
+        merchant="ACCT 1234-5678-9012-3456",
+        amount_cents=5000,
+        txn_date=datetime.date(2026, 7, 1),
+        ledger_path=path,
+    )
+    assert "redacted" in with_pii.summary().lower()
+
+    path2 = path.parent / "ledger2.json"
+    clean = ingest_receipt(
+        merchant="Blue Bottle Coffee",
+        amount_cents=650,
+        txn_date=datetime.date(2026, 7, 1),
+        ledger_path=path2,
+    )
+    assert "redacted" not in clean.summary().lower()  # nothing to falsely claim
 
 
 def test_clean_receipt_has_no_flags(tmp_path) -> None:

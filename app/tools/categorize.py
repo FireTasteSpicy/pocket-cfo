@@ -18,6 +18,7 @@ preferred for similar future merchants.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from app.models import BonusCategory
@@ -104,16 +105,37 @@ _RULES: list[tuple[list[str], str, BonusCategory]] = [
 
 _UNCATEGORIZED = ("Uncategorized", BonusCategory.DEFAULT)
 
+# Skipped when picking a correction key: payment-processor prefixes and common
+# stopwords/business suffixes that are not distinguishing parts of a merchant
+# name. Found in review: "SQ *THE LOCAL PANTRY" keyed to "the" (the first token
+# with >=3 alpha chars), which -- combined with word-boundary matching in
+# categorize() -- would then hijack every future merchant containing "the".
+_KEY_STOPWORDS = {
+    "sq",
+    "tst",
+    "pos",
+    "the",
+    "and",
+    "for",
+    "of",
+    "inc",
+    "llc",
+    "ltd",
+    "corp",
+    "co",
+}
+
 
 def _correction_key(merchant: str) -> str:
-    """A stable key for a correction: the first alphabetic token, lowercased.
+    """A stable key for a correction: the first DISTINGUISHING alphabetic token.
 
     "AMAZON MARKETPLACE" and "AMAZON.COM" both key to "amazon", so a correction on
-    one applies to the other.
+    one applies to the other. Stopwords (see _KEY_STOPWORDS) are skipped so the
+    key is never a generic word that would match unrelated merchants.
     """
     for token in merchant.lower().replace("*", " ").split():
         alpha = "".join(ch for ch in token if ch.isalpha())
-        if len(alpha) >= 3:
+        if len(alpha) >= 3 and alpha not in _KEY_STOPWORDS:
             return alpha
     return merchant.strip().lower()
 
@@ -150,8 +172,13 @@ def categorize(
     lower = text.lower()
 
     # 1. Corrections win — a remembered merchant is categorized as the user asked.
+    # Matched at a WORD BOUNDARY (\b), not raw substring containment: a correction
+    # keyed "bar" (from "Bar Luca") must match "AMAZON.COM" via the dot boundary
+    # after "amazon", but must NOT silently hijack "BARNES & NOBLE" or "CROWBAR" --
+    # a bare `key in lower` check would match all three, letting one correction
+    # poison unrelated future merchants (found in review; see test_categorize.py).
     for key, (budget_cat, bonus_cat) in load_corrections(corrections_path).items():
-        if key in lower:
+        if re.search(rf"\b{re.escape(key)}\b", lower):
             return budget_cat, BonusCategory(bonus_cat)
 
     # 2. Built-in keyword rules.

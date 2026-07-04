@@ -39,6 +39,7 @@ from pydantic import BaseModel  # noqa: E402
 from app.tools.ingest import ingest_statement_csv  # noqa: E402
 from app.tools.ledger import DEFAULT_LEDGER_PATH  # noqa: E402
 from app.tools.redaction import contains_unredacted_pii  # noqa: E402
+from app.tools.seed_utils import rebase_csv_dates_to_current_month  # noqa: E402
 
 _DATASET = Path(__file__).resolve().parent / "datasets" / "pocket-cfo-dataset.json"
 _SEED = Path("app/data/seed/sample_statement.csv")
@@ -155,8 +156,13 @@ def _run_agent(prompt: str) -> str:
 
 def main() -> None:
     # Reset + seed the ledger so the run is reproducible ($2,500 of $3,000 on Amex).
+    # Dates are rebased onto the CURRENT month so the budget-vs-actual math (which
+    # correctly filters to the current calendar month) has real current-month spend
+    # to show, regardless of what day this eval happens to run on.
     DEFAULT_LEDGER_PATH.unlink(missing_ok=True)
-    ingest_statement_csv(_SEED.read_text(), card_id="amex_gold")
+    ingest_statement_csv(
+        rebase_csv_dates_to_current_month(_SEED.read_text()), card_id="amex_gold"
+    )
 
     cases = json.loads(_DATASET.read_text())["eval_cases"]
     totals: dict[str, list[int]] = {

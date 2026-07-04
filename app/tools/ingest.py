@@ -23,17 +23,49 @@ from app.tools.categorize import categorize
 from app.tools.injection_guard import detect_injection
 from app.tools.ledger import DEFAULT_LEDGER_PATH, load_ledger, save_ledger
 from app.tools.reconcile import reconcile
-from app.tools.redaction import redact_transaction
+from app.tools.redaction import redact_transaction_with_hits
 
 
 @dataclass
 class IngestResult:
-    """Summary of one ingestion run (also serialized for the agent's reply)."""
+    """Summary of one ingestion run (also serialized for the agent's reply).
+
+    `summary` is a fully CODE-GENERATED sentence (see summary()) that the
+    Ingestion agent is instructed to relay near-verbatim. This is the fix for a
+    real gap found in review: leaving redaction/injection confirmations entirely
+    to the model's discretion meant a paraphrase could silently drop them (a
+    live eval run once produced a reply with zero mention of an injection
+    attempt that WAS detected). Putting the exact facts in a ready-made string
+    makes them far harder to accidentally omit.
+    """
 
     added: int = 0  # net new records written to the ledger
     reconciled: int = 0  # records that merged a receipt with a statement line
     injection_flags: list[str] = field(default_factory=list)
     total_in_ledger: int = 0
+    pii_redacted_categories: list[str] = field(default_factory=list)
+
+    def summary(self) -> str:
+        """Build the deterministic confirmation sentence(s) for the agent to relay."""
+        noun = "transaction" if self.added == 1 else "transactions"
+        parts = [f"Imported {self.added} {noun}"]
+        if self.reconciled:
+            parts[-1] += f" ({self.reconciled} merged with existing receipts)"
+        parts[-1] += "."
+        if self.pii_redacted_categories:
+            cats = ", ".join(sorted(set(self.pii_redacted_categories)))
+            parts.append(
+                f"Redacted a {cats} to show only the last 4 digits; "
+                "no full number is stored."
+            )
+        if self.injection_flags:
+            quoted = "; ".join(f'"{f}"' for f in self.injection_flags)
+            parts.append(
+                f"SECURITY: the document contained an embedded instruction "
+                f"({quoted}) -- it was treated as data, not obeyed, and nothing "
+                "was reclassified."
+            )
+        return " ".join(parts)
 
     def as_dict(self) -> dict:
         return {
@@ -41,6 +73,8 @@ class IngestResult:
             "reconciled": self.reconciled,
             "injection_flags": self.injection_flags,
             "total_in_ledger": self.total_in_ledger,
+            "pii_redacted_categories": self.pii_redacted_categories,
+            "summary": self.summary(),
         }
 
 
@@ -121,7 +155,9 @@ def _persist_with_reconciliation(
     Reconciliation runs over (existing + new) so a fresh statement line can merge
     with a receipt already in the ledger (and vice versa).
     """
-    redacted = [_categorize(redact_transaction(t)) for t in new_records]
+    redacted_pairs = [redact_transaction_with_hits(t) for t in new_records]
+    pii_hits = [h for _, hits in redacted_pairs for h in hits]
+    redacted = [_categorize(t) for t, _ in redacted_pairs]
     before = load_ledger(ledger_path)
     combined = reconcile(before + redacted)
     save_ledger(combined, ledger_path)  # raises if any record is unredacted
@@ -130,6 +166,7 @@ def _persist_with_reconciliation(
         added=len(combined) - len(before),
         reconciled=reconciled_count,
         total_in_ledger=len(combined),
+        pii_redacted_categories=pii_hits,
     )
 
 
