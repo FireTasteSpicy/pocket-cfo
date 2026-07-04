@@ -1,0 +1,54 @@
+# Pre-commit security & quality gate for Pocket CFO.
+#
+# WHY THIS EXISTS (security-first / shift-left): the cheapest place to stop a
+# secret from leaking is *before* the commit is even created. This hook is a
+# deterministic guardrail (course "Guardrails/Hooks" pattern) — it runs on every
+# `git commit`, and if it finds a hardcoded key the commit is blocked. The fix is
+# to move the secret to an env var and re-commit; we NEVER bypass with --no-verify.
+#
+# Install once:  uv run pre-commit install
+# Run on demand: uv run pre-commit run --all-files
+#
+# NOTE: Semgrep runs natively on Linux/macOS. This repo lives on WSL Ubuntu, so
+# the hook executes under Linux even when the editor is on Windows.
+
+repos:
+  # ── Primary secret scanner: Semgrep with the registry "secrets" ruleset ─────
+  - repo: https://github.com/semgrep/pre-commit
+    rev: v1.168.0
+    hooks:
+      - id: semgrep
+        name: semgrep (hardcoded-secret scan)
+        # p/secrets = Semgrep's curated ruleset for detecting hardcoded API keys,
+        # tokens, and credentials. --error makes any finding fail the commit.
+        args: ["--config", "p/secrets", "--error", "--skip-unknown-extensions"]
+
+  # ── Second, independent secret scanner (defense in depth) ───────────────────
+  # gitleaks uses regex + entropy and catches formats Semgrep's rules may miss.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+        name: gitleaks (entropy + regex secret scan)
+
+  # ── Code quality: ruff lint + format (fast, deterministic) ──────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20
+    hooks:
+      - id: ruff
+        name: ruff (lint)
+        args: ["--fix"]
+      - id: ruff-format
+        name: ruff (format)
+
+  # ── Hygiene: block accidental large files, fix whitespace, validate configs ─
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-json
+      - id: detect-private-key   # a final, cheap belt-and-suspenders key check

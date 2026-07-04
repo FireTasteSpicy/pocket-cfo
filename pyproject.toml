@@ -1,0 +1,112 @@
+# Pocket CFO — project + tooling configuration.
+#
+# Dependency strategy: pyproject declares compatible RANGES (what the code needs);
+# uv.lock pins the EXACT resolved versions for reproducibility. Together they give
+# a "pinned but maintainable" install — `uv sync` reproduces the locked graph on a
+# clean machine, while the ranges document our real compatibility floor.
+[project]
+name = "pocket-cfo"
+version = "0.1.0"
+description = "A privacy-first personal-finance concierge that reasons about your money — a multi-agent ADK system that never moves money (read-only by design)."
+authors = [
+    {name = "Pocket CFO", email = "noreply@example.com"},
+]
+
+dependencies = [
+    # ADK 2.x is the agent framework. We floor at 2.3.0 because that line ships the
+    # first-class Agent Skills API (google.adk.skills / SkillToolset) this project uses.
+    # The [gcp] extra keeps us compatible with `agents-cli playground/deploy`.
+    "google-adk[gcp]>=2.3.0,<3.0.0",
+    "a2a-sdk[http-server]~=0.3.22",
+    "aiohttp>=3.13.4",
+    "opentelemetry-instrumentation-google-genai>=0.1.0,<1.0.0",
+    "gcsfs>=2024.11.0",
+    "google-cloud-logging>=3.12.0,<4.0.0",
+    # Pocket CFO additions:
+    "pyyaml>=6.0.3",       # card-benefits reference skill (cards.yaml) + eval configs
+    "python-dotenv>=1.2.2", # load GEMINI_API_KEY from .env when running our own scripts
+]
+requires-python = ">=3.11,<3.14"
+
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2,<10.0.0",
+    "pytest-asyncio>=1.0.0,<2.0.0",
+    "nest-asyncio>=1.6.0,<2.0.0",
+    "pre-commit>=4.6.0,<5.0.0",  # drives the Semgrep/gitleaks secret-scan hook
+]
+
+[project.optional-dependencies]
+eval = [
+    "google-adk[eval]>=2.3.0,<3.0.0",
+    "google-cloud-aiplatform[evaluation]>=1.156.0",
+]
+lint = [
+    "ruff>=0.4.6,<1.0.0",
+    "ty>=0.0.1a0",
+    "codespell>=2.2.0,<3.0.0",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "C",  # flake8-comprehensions
+    "B",   # flake8-bugbear
+    "UP", # pyupgrade
+    "RUF", # ruff specific rules
+]
+ignore = ["E501", "C901", "B006"] # ignore line too long, too complex
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ty]
+# ty is Astral's Rust-based type checker (same team as ruff/uv)
+# See: https://docs.astral.sh/ty/
+
+[tool.ty.environment]
+python-version = "3.11"
+
+[tool.ty.src]
+exclude = [".venv/**"]
+
+[tool.ty.rules]
+# Ignore common issues with third-party libraries and dynamic code patterns
+unresolved-import = "ignore"
+unresolved-attribute = "ignore"
+invalid-argument-type = "ignore"
+invalid-assignment = "ignore"
+invalid-return-type = "ignore"
+possibly-missing-attribute = "ignore"
+not-subscriptable = "ignore"
+deprecated = "ignore"
+
+[tool.codespell]
+ignore-words-list = "rouge"
+skip = "./locust_env/*,uv.lock,.venv,**/package-lock.json"
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[tool.pytest.ini_options]
+pythonpath = "."
+# asyncio_mode=auto lets us write `async def test_*` without decorating each one;
+# our ADK agents are async, so most agent-level tests are coroutines.
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.hatch.build.targets.wheel]
+# Only `app` is an importable package. (The scaffold also listed a `frontend`
+# package that we don't ship; leaving it here would break the wheel build.)
+packages = ["app"]
