@@ -58,13 +58,19 @@ the original gap; it exists to keep that fix honest going forward.
   injection path, and only `pii_redaction` exercises the redaction path. Treat the
   scorecard's per-metric average as "no regression detected," not "N cases proved
   this."
-- **`ledger_integrity` shares one ledger file across the whole eval run.** Cases
-  run against the same `app/data/ledger.json`, seeded once at the start
-  (`make eval` / `run_eval.py`'s `main()`). This is intentional — later cases
-  (e.g. `which_card_hero`) depend on the seeded state — but it means
-  `ledger_integrity`'s per-case check can only assert "this pattern of entry
-  exists somewhere in the ledger," not "this specific run added exactly this
-  entry," since concurrent or repeated runs would leave earlier entries in place.
+- **`ledger_integrity` shares one ledger file, but keys each case on its own
+  distinctive write.** Cases run against the same `app/data/ledger.json`, seeded
+  once at the start (`make eval` / `run_eval.py`'s `main()`) — intentional, since
+  later cases (e.g. `which_card_hero`) depend on the seeded state. Because the seed
+  itself carries a PII line (`ACH PYMT ACCT …3456` at **$500**) that looks just like
+  the `pii_redaction` case's input (`ACH ACCT …3456` at **$50**), a naive
+  substring match on `3456` could pass on the *seed's* entry even if the case's own
+  ingest no-op'd. To close that, each security case now matches its entry by a
+  **unique amount** absent from the seed ($50 / $18.75 / $42.00), and
+  `pii_redaction` additionally asserts the **global** invariant that no entry
+  anywhere in the ledger is unredacted at rest. A stateless post-hoc read still
+  can't prove *exactly one* entry was added by this run, but a seed entry can no
+  longer satisfy the check on its own.
 - **10 cases cover 8 of the ~16 SPEC §3 scenarios end-to-end via the live agent.**
   The rest (reconciliation, deadline-tiebreak, correction-learning) are proven
   deterministically in `tests/unit/` instead, since they don't need a live model

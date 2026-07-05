@@ -12,6 +12,13 @@ keeping only the last 4 digits visible (PCI-style) so a human can still recogniz
 "the card ending 3456" without the full number ever leaving the boundary. Money
 amounts (short numbers like 47.83) are never touched — they are stored as separate
 integer cents, and the patterns below only match long digit sequences.
+
+SCOPE: this covers *digit-run* PII — card/account numbers (13-19 digits), SSNs, and
+9-12-digit account/routing runs. Emails, personal names, and phone numbers are out
+of scope by design: the statement/receipt fields this boundary ingests carry account
+identifiers, not contact details. Widen the patterns below if a future source can
+carry those. The same patterns back `contains_unredacted_pii`, which the ledger
+write-guard uses as its persist post-condition (`app/tools/ledger.py`).
 """
 
 from __future__ import annotations
