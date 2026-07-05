@@ -141,7 +141,7 @@ The project follows the course methodology deliberately:
   the Semgrep pre-commit hook, and an AI-Studio-first `.env.example` with the real
   `.env` gitignored.
 - **Test-first.** Redaction, injection detection, reconciliation, categorization, and
-  the card-strategy hero were each written test-first. The suite is **77
+  the card-strategy hero were each written test-first. The suite is **84
   deterministic unit tests that need no API key**, plus an LLM-as-judge evalset with
   a deterministic *mechanism-level* metric (`ledger_integrity`, which reads the
   actual persisted ledger rather than trusting the model's narration — see

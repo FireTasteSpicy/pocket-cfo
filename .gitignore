@@ -228,3 +228,5 @@ app/data/.calendar_oauth_state.json
 app/data/calendar_demo_id.json
 # ...but DO track the synthetic sample docs used for demos/tests:
 !app/data/seed/
+# Local scratch dir for building submission assets (cover/writeup renders):
+_assetbuild/
