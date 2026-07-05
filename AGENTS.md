@@ -1,5 +1,9 @@
 # Pocket CFO — Agent Guide (always-loaded context)
 
+> Standard `AGENTS.md` — read natively by Claude Code, Cursor, and Google
+> Antigravity alike. Agent Skills live at `.agents/skills/`, the same path
+> Antigravity's own project convention expects.
+
 **Pocket CFO** is a privacy-first personal-finance concierge: a multi-agent
 Google ADK 2.x system that ingests financial documents locally, keeps a clean
 **redacted** ledger, and answers the questions a static tracker can't — most of

@@ -260,6 +260,35 @@ uv run python scripts/calendar_oauth_setup.py finish "<pasted URL>"
 After that, the Calendar agent's `sync_money_dates_to_calendar` tool creates real
 payday / payment-due / bonus-deadline events in your actual Google Calendar.
 
+### Developing this project in Google Antigravity (optional)
+
+This repo needs **no changes** to open in [Google Antigravity](https://antigravity.google):
+it already follows Antigravity's own project conventions —
+[`AGENTS.md`](AGENTS.md) (standing instructions, read natively) and
+[`.agents/skills/`](.agents/skills/) (Agent Skills, at exactly the path Antigravity
+expects) are picked up automatically the moment you open the folder as a project.
+
+> **Two separate MCP integrations — don't conflate them.** Pocket CFO's own
+> Calendar agent (`app/agents/calendar_agent.py`) talks to the Calendar MCP server
+> via `GOOGLE_CALENDAR_MCP_ENDPOINT` / `GOOGLE_CALENDAR_OAUTH_TOKEN` in `.env` —
+> that is unaffected by which IDE you use. The steps below instead wire the
+> **Antigravity coding agent's own** MCP client, so *it* can use Calendar tools
+> while helping you develop (e.g. "what's on my calendar today?" mid-session).
+
+To toggle the Calendar MCP server for the Antigravity agent itself:
+1. In Antigravity: **Settings → Customizations → MCP Servers → Manage MCP Servers → View raw config.**
+2. Copy [`.agents/mcp_config.json.example`](.agents/mcp_config.json.example) into
+   your **global** `~/.gemini/config/mcp_config.json` (Antigravity currently has no
+   `${ENV_VAR}` interpolation for MCP secrets — whatever you put there is literal
+   plaintext, so it must live outside this repo, never committed).
+3. Fill in a real OAuth Web-application `clientId` / `clientSecret` from Cloud
+   Console (redirect URI `https://antigravity.google/oauth-callback`; scopes
+   `calendar.calendarlist.readonly`, `calendar.events.freebusy`,
+   `calendar.events.readonly`), flip `"disabled"` to `false`, and click
+   **Authenticate** in the same panel.
+4. To turn it off again, either flip `"disabled": true` in that same raw config,
+   or use the **toggle switch** next to the server's name in the MCP Servers panel.
+
 ## 11. Evaluation
 
 Agent output is probabilistic, so quality is measured with an LLM-as-judge over the execution trajectory (the course pattern), via Agents CLI:

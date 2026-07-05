@@ -230,3 +230,8 @@ app/data/calendar_demo_id.json
 !app/data/seed/
 # Local scratch dir for building submission assets (cover/writeup renders):
 _assetbuild/
+# Google Antigravity's OWN MCP config, if ever kept project-local instead of the
+# recommended ~/.gemini/config/mcp_config.json (Antigravity currently hardcodes
+# secrets into this file -- it must never be committed):
+.agents/mcp_config.json
+!.agents/mcp_config.json.example
