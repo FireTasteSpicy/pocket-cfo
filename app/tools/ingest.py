@@ -16,6 +16,7 @@ import datetime
 import hashlib
 import io
 from dataclasses import dataclass, field
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 from app.models import Transaction, TransactionSource
@@ -68,6 +69,8 @@ class IngestResult:
         return " ".join(parts)
 
     def as_dict(self) -> dict:
+        """Serialize the ingest result (including the code-generated `summary`) as
+        the ingestion tool's return value handed back to the agent."""
         return {
             "added": self.added,
             "reconciled": self.reconciled,
@@ -85,11 +88,14 @@ def _stable_id(prefix: str, *parts: object) -> str:
 
 
 def _dollars_to_cents(amount: str | float) -> int:
-    """Convert a dollar amount to integer cents without float drift.
+    """Convert a dollar amount to integer cents without binary-float drift.
 
-    We route through Decimal-style rounding by formatting to 2 dp first.
+    Parses through Decimal from the string form (so a value like "2.675" rounds to
+    268 cents, not the 267 a binary float would give) and rounds half-up.
     """
-    return round(float(amount) * 100)
+    return int(
+        (Decimal(str(amount)) * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    )
 
 
 def parse_statement_csv(
@@ -133,8 +139,9 @@ def _categorize(txn: Transaction) -> Transaction:
 
     Categorizing at ingest (using the shared categorize() engine) means the ledger
     is always ready for both consumers — budget totals and the card strategist —
-    without a separate pass. The Categorization agent still refines ambiguous cases
-    and applies user corrections on top of this baseline.
+    without a separate pass. The Orchestrator still refines ambiguous cases (via its
+    categorize_transaction tool) and applies user corrections (record_correction) on
+    top of this baseline.
     """
     if txn.category is not None and txn.bonus_category is not None:
         return txn

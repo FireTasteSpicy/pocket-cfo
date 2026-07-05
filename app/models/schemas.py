@@ -44,9 +44,9 @@ class TransactionSource(StrEnum):
 class BonusCategory(StrEnum):
     """The card-multiplier bucket a purchase falls into.
 
-    This is the single hand-off between the Categorization agent and the Card
-    Strategy agent: categorization maps a merchant to one of these, and the card
-    strategist looks up each card's multiplier for it. DEFAULT is the catch-all
+    This is the single hand-off between the Orchestrator's categorize_transaction
+    and which_card tools: categorization maps a merchant to one of these, and the
+    card strategist looks up each card's multiplier for it. DEFAULT is the catch-all
     (the "1x everything else" bucket).
     """
 
@@ -60,7 +60,6 @@ class CalendarEventType(StrEnum):
     """Kinds of money-dates the Calendar agent manages (SPEC.md §1)."""
 
     PAYDAY = "PAYDAY"
-    STATEMENT_CLOSE = "STATEMENT_CLOSE"
     PAYMENT_DUE = "PAYMENT_DUE"
     BONUS_DEADLINE = "BONUS_DEADLINE"
 
@@ -91,7 +90,7 @@ class Transaction(BaseModel):
     )
     category: str | None = Field(
         default=None,
-        description="Budget category (assigned by the Categorization agent).",
+        description="Budget category (assigned by the categorize() engine).",
     )
     bonus_category: BonusCategory | None = Field(
         default=None,

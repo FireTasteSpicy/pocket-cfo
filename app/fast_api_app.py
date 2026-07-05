@@ -12,6 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""FastAPI entrypoint that serves Pocket CFO (the agents-cli / Agent Runtime target).
+
+Assembles the ADK FastAPI app (the playground UI plus the agent's run endpoints),
+wires the A2A routes and a /feedback sink, and configures telemetry. This is the
+deploy surface the Dockerfile runs (uvicorn app.fast_api_app:app) and what
+`make playground` drives locally. No finance logic lives here -- it only hosts
+app/agent.py's `root_agent`.
+"""
+
 import contextlib
 import os
 from collections.abc import AsyncIterator
@@ -43,6 +52,9 @@ AGENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Server startup/shutdown hook: build the ADK Runner and attach the A2A routes
+    once the app boots (deferred here so the agent app is constructed after env and
+    telemetry are initialized)."""
     from app.agent import app as adk_app
     from app.agent import root_agent
 

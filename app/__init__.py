@@ -12,6 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Pocket CFO application package.
+
+Re-exports the deployable ADK `app` (assembled in app/agent.py) so that
+`google-agents-cli` and the FastAPI server can discover it as `app.app`. All real
+agent wiring lives in app/agent.py; this package root is intentionally thin.
+"""
+
 from .agent import app
 
 __all__ = ["app"]

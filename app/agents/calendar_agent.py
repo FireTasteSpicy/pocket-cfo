@@ -4,6 +4,9 @@ PRIVILEGE (ARCHITECTURE.md §2.2): this is the one agent with calendar WRITE acc
 That capability is exactly why it is a separate agent from Ingestion — their
 security postures are incompatible, so a compromise of the document reader can't
 reach calendar write. It has no access to raw documents and cannot move money.
+This posture is architectural, not credential-dependent: Calendar is the only agent
+ever wired with calendar-write tools, even on a clean checkout where no token is
+present and those tools aren't attached (it then runs with reasoning-only tools).
 
 MCP INTEGRATION (consumption over creation): the agent consumes Google's OFFICIAL
 hosted Calendar MCP server (calendarmcp.googleapis.com) over streamable HTTP —

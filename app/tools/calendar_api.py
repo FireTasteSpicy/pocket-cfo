@@ -26,12 +26,19 @@ from __future__ import annotations
 import datetime
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from app.models import CalendarEvent, CalendarEventType
 from app.tools.aggregate import compute_card_progress
 from app.tools.calendar_events import compute_money_dates
 from app.tools.cards import load_cards
 from app.tools.ledger import load_ledger
+
+if TYPE_CHECKING:
+    # For annotations only: the googleapiclient Calendar service type. It is
+    # imported lazily inside get_calendar_service() at runtime, so this block never
+    # executes then (and `from __future__ import annotations` keeps the hints lazy).
+    from googleapiclient.discovery import Resource
 
 # The full "calendar" scope (not just .events) is required: creating/listing the
 # dedicated "Pocket CFO Demo" calendar itself (calendars().insert/calendarList())
@@ -55,7 +62,6 @@ _DEMO_CALENDAR_ID_CACHE = Path("app/data/calendar_demo_id.json")
 # formatting, not reasoning).
 _EVENT_TITLES: dict[CalendarEventType, str] = {
     CalendarEventType.PAYDAY: "\U0001f4b0 Payday",
-    CalendarEventType.STATEMENT_CLOSE: "\U0001f4c4 Statement closes",
     CalendarEventType.PAYMENT_DUE: "\U0001f4b3 Card payment due",
     CalendarEventType.BONUS_DEADLINE: "\U0001f3af Card sign-up-bonus deadline",
 }
@@ -71,7 +77,7 @@ def calendar_write_available() -> bool:
     return TOKEN_PATH.exists()
 
 
-def get_calendar_service():
+def get_calendar_service() -> Resource | None:
     """Return an authorized Calendar v3 service, or None if not yet configured.
 
     Refreshes an expired access token using the cached refresh token (no user
@@ -111,7 +117,9 @@ def event_body(event: CalendarEvent) -> dict:
     }
 
 
-def create_event(service, event: CalendarEvent, calendar_id: str = "primary") -> dict:
+def create_event(
+    service: Resource, event: CalendarEvent, calendar_id: str = "primary"
+) -> dict:
     """Insert one CalendarEvent into `calendar_id`. Returns the API response.
 
     Defaults to "primary" only for callers that explicitly want that (e.g. a
@@ -125,7 +133,7 @@ def create_event(service, event: CalendarEvent, calendar_id: str = "primary") ->
     )
 
 
-def get_or_create_demo_calendar_id(service) -> str:
+def get_or_create_demo_calendar_id(service: Resource) -> str:
     """Return the id of Pocket CFO's dedicated "Pocket CFO Demo" calendar.
 
     Order of preference: (1) a cached id from a prior run, verified still valid;

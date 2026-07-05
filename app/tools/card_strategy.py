@@ -55,6 +55,8 @@ class CardRecommendation:
     budget_warning: str | None = None
 
     def as_dict(self) -> dict:
+        """Serialize the recommendation as the `which_card` tool's return value
+        (deciding_factor as its string; budget_warning included when present)."""
         return {
             "card_id": self.card_id,
             "card_name": self.card_name,

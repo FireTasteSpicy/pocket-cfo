@@ -12,6 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Pydantic models for the server's HTTP surface (not the finance domain).
+
+Finance-domain models (Transaction, Card, Budget) live in app/models/schemas.py;
+this module holds only the request/response shapes for the operational endpoints the
+agents-cli server exposes -- currently the /feedback payload.
+"""
+
 import uuid
 from typing import (
     Literal,

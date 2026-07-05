@@ -1,12 +1,17 @@
 """Specialist agents for Pocket CFO.
 
-Each module here defines one ADK agent with a specific privilege posture:
-  * ingestion.py      — sandboxed, low-privilege; the ONLY agent that reads raw
-                        documents (parse -> redact -> dedup).
-  * categorization.py — standard; assigns budget + bonus category in one pass.
-  * card_strategy.py  — standard; the "which card?" hero recommender.
-  * calendar_agent.py — calendar write-access via the Google Calendar MCP server.
+Only the two agents whose SECURITY POSTURE differs from the Orchestrator's live
+here; everything standard-privilege (categorization, the "which card?" call) runs
+as a plain tool on the Orchestrator (app/agent.py), not as its own agent. The
+modules here:
+  * ingestion.py      — least-privilege document reader (restricted tool surface);
+                        the ONLY agent that reads raw documents (parse -> redact
+                        -> dedup). No calendar or money access.
+  * calendar_agent.py — the only agent with calendar WRITE access (hosted Google
+                        Calendar MCP server, or the GA REST fallback).
 
-They are wired together through the Orchestrator in app/agent.py. Modules are
-added phase by phase; this package marker keeps `app.agents.*` importable.
+Both are wired into the Orchestrator in app/agent.py as AgentTools. (An earlier
+revision also had categorization.py and card_strategy.py agents; both were
+collapsed into direct Orchestrator tools because they need no privilege boundary
+of their own — see app/agent.py.)
 """

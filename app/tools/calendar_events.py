@@ -14,6 +14,9 @@ from __future__ import annotations
 import datetime
 
 from app.models import BonusCategory, CalendarEvent, CalendarEventType, Card
+from app.tools.card_strategy import (
+    recommend_card,  # hero logic; card_strategy imports only app.models, so no cycle
+)
 
 
 def _next_day_of_month(today: datetime.date, day: int) -> datetime.date:
@@ -80,8 +83,6 @@ def suggest_bill_routing(
     """
     today = today or datetime.date.today()
     # Reuse the hero decision logic (a bill is DEFAULT-category spend).
-    from app.tools.card_strategy import recommend_card
-
     live_bonus = [
         c
         for c in cards

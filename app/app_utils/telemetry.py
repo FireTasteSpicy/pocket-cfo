@@ -12,6 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""OpenTelemetry / Cloud Trace setup for the deployed Pocket CFO server.
+
+Configures GenAI request/response telemetry with content capture defaulted OFF
+(NO_CONTENT) so prompts and responses -- which for a finance agent can echo user
+data -- never land in trace spans or logs unless an operator explicitly opts in via
+LOGS_BUCKET_NAME. This is the privacy-first posture applied at the observability
+layer, complementing the ingestion-time PII redaction.
+"""
+
 import logging
 import os
 
