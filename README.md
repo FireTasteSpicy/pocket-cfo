@@ -44,6 +44,10 @@ Pocket CFO is a multi-agent system that:
 
 Crucially, **Pocket CFO never moves money.** The capability does not exist in any tool — so no prompt, and no injected instruction, can make it pay a bill.
 
+![Pocket CFO dashboard — the "which card?" recommendation, sign-up-bonus progress, and this month's budget vs. actual](dashboard/dashboard.png)
+
+*The dashboard is generated entirely from the redacted local ledger by the same deterministic tools the agents use (`uv run python dashboard/generate.py`) — every figure traces back to `cards.yaml` or the ledger, with no mock data.*
+
 ## 3. Why agents?
 
 Three things here genuinely require reasoning, not rules:
@@ -62,11 +66,11 @@ Pocket CFO is **multi-agent only where security postures differ; everything else
 
 ```mermaid
 flowchart TD
-    User([User]) <--> Orch[Orchestrator / Concierge Agent<br/>categorize · which_card · budget Q&A]
-    Docs[Statements & Receipts]
+    User([User]) <--> Orch["Orchestrator / Concierge Agent<br/>categorize · which_card · budget Q&A"]
+    Docs["Statements & Receipts"]
 
     subgraph Sandbox["Sandboxed · Low-Privilege"]
-        Ingest[Ingestion Agent<br/>parse · redact PII · dedup]
+        Ingest["Ingestion Agent<br/>parse · redact PII · dedup"]
     end
 
     Docs --> Ingest
@@ -308,6 +312,12 @@ make unit              # fast, deterministic, no API key required
 
 The deterministic cores — redaction, injection detection, reconciliation, the PII-guarded ledger, categorization, and the **card-strategy hero logic** — are covered by unit tests that run without any API key and pin every SPEC §3 scenario.
 
+Two structural guarantees are pinned by their own no-network unit tests — the **read-only / privilege boundary** (`tests/unit/test_agent_wiring.py`: no money-moving tool exists on any agent, and the Ingestion agent cannot reach the Calendar agent's write tools) and the **Google Calendar MCP wiring** (`tests/unit/test_calendar_mcp.py`: the ADK `McpToolset` is built against the official server with a least-privilege tool filter, verifiable without Developer-Preview access):
+
+```bash
+uv run pytest tests/unit/test_agent_wiring.py tests/unit/test_calendar_mcp.py -v
+```
+
 ## 13. Project status
 
 | Phase | Status |
@@ -318,7 +328,7 @@ The deterministic cores — redaction, injection detection, reconciliation, the 
 | 3 — Concierge surface (Calendar MCP, dashboard) | ✅ Complete |
 | 4 — Prove & polish (LLM-as-judge evals, writeup) | ✅ Complete — validated live on Vertex AI |
 
-**77 unit tests pass** (deterministic, no API key required) plus 5 integration tests run live against Gemini — 82 total. The LLM-as-judge evalset (10 cases, 4 metrics — §11) has been run end-to-end against the real multi-agent system; see [`docs/WRITEUP.md`](docs/WRITEUP.md) for the latest scorecard. Calendar has two live write paths: the official hosted MCP server (needs Workspace Developer Preview) and a working `google-api-python-client` fallback that needs only a plain OAuth client (§10) — see [ARCHITECTURE.md §7](ARCHITECTURE.md#7-mcp-integration).
+**84 unit tests pass** (deterministic, no API key required) plus 5 integration tests run live against Gemini — 89 total. The LLM-as-judge evalset (10 cases, 4 metrics — §11) has been run end-to-end against the real multi-agent system; see [`docs/WRITEUP.md`](docs/WRITEUP.md) for the latest scorecard. Calendar has two live write paths: the official hosted MCP server (needs Workspace Developer Preview) and a working `google-api-python-client` fallback that needs only a plain OAuth client (§10) — see [ARCHITECTURE.md §7](ARCHITECTURE.md#7-mcp-integration).
 
 ## 14. Disclaimers
 

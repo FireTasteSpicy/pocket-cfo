@@ -162,7 +162,7 @@ Antigravity, isn't used — this project was built with Claude Code instead.
 - The three-agent system is wired through the Orchestrator, with the Ingestion and
   Calendar agents privilege-separated. The dashboard renders filling minimum-spend
   and budget bars from the **real** redacted ledger (nothing mocked).
-- 82 tests pass: 77 unit (deterministic, no API key, covering every SPEC §3
+- 89 tests pass: 84 unit (deterministic, no API key, covering every SPEC §3
   scenario) plus 5 integration tests run live against Gemini.
 - The evalset (10 cases, 4 metrics) was run end-to-end against the live
   multi-agent system on Vertex AI — see the scorecard below and

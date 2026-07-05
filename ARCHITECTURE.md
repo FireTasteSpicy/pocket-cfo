@@ -191,9 +191,10 @@ optional; the core product is fully demonstrable without it.
 ## 9. Testing & evaluation strategy
 
 1. **Outcome-based pytest** (`tests/unit/`, `tests/integration/`) — assert on final
-   return values and ledger state. 77 unit tests, no API key required; they pin every
-   SPEC §3 scenario, including the security invariants, correction-key edge cases,
-   date-robustness of the seed data, and the card-strategy deadline-lapse fallback.
+   return values and ledger state. 84 unit tests, no API key required; they pin every
+   SPEC §3 scenario, including the security invariants, the read-only/privilege
+   boundary, the MCP toolset wiring, correction-key edge cases, date-robustness of the
+   seed data, and the card-strategy deadline-lapse fallback.
 2. **LLM-as-judge evalset** (`tests/eval/`, 10 cases) — scored on four metrics: two
    narration-level deterministic checks (`pii_containment`, `injection_rejection`),
    one mechanism-level deterministic check (`ledger_integrity` — reads the actual

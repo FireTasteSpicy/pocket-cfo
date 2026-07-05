@@ -53,7 +53,7 @@ Budget:
   spent_cents: integer        # COMPUTED from the ledger for the current month
 
 CalendarEvent:
-  type: enum                  # PAYDAY | STATEMENT_CLOSE | PAYMENT_DUE | BONUS_DEADLINE
+  type: enum                  # PAYDAY | PAYMENT_DUE | BONUS_DEADLINE
   date: date
   card_id: string|null
   note: string
