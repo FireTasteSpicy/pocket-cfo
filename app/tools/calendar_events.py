@@ -4,8 +4,9 @@ The Calendar agent doesn't just STORE dates — it reasons across them (SPEC.md 
 "Reason across dates, not just store them"). This module computes the money-dates
 from the ledger + card terms, and produces the cross-date suggestion that makes the
 feature more than a reminder list: "this bill is due soon AND a card bonus is short
-— route the bill to that card." The agent then creates the events via the Google
-Calendar MCP server; the reasoning here is testable without any calendar access.
+— route the bill to that card." The agent then creates the events via its calendar
+write tool (the hosted Calendar MCP server when configured, else the GA Calendar
+REST fallback); the reasoning here is testable without any calendar access.
 """
 
 from __future__ import annotations

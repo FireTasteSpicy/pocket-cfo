@@ -7,7 +7,9 @@ disagree, the spec wins — fix the code or amend the spec deliberately.
 
 Read with [`ARCHITECTURE.md`](ARCHITECTURE.md) (agent contracts) and the
 [`README`](README.md). Every scenario below is pinned by a unit test in
-`tests/unit/` (see the mapping in §4).
+`tests/unit/` (see the mapping in §4), except the read-only guarantee, which is
+proven structurally (no money-moving tool exists — `test_agent_wiring.py`) and
+behaviorally (eval case `read_only_guarantee`).
 
 ---
 
@@ -188,14 +190,19 @@ Scenario: Report category budget vs actual
 ## 4. Acceptance criteria (definition of done)
 
 - All §3 scenarios pass their pytest / eval cases. **Mapping:**
-  `test_ingest.py` (statement import, injection), `test_redaction.py` (PII),
+  `test_ingest.py` (statement import, injection, manual entry), `test_redaction.py` (PII),
   `test_reconcile.py` (reconciliation), `test_categorize.py` (categorization +
   correction), `test_card_strategy.py` (all four which-card scenarios),
   `test_aggregate.py` (budget status + full hero end-to-end),
-  `test_calendar.py` (money-dates + bill routing), `test_ledger.py` (PII write guard).
+  `test_calendar.py` (money-dates + bill routing), `test_ledger.py` (PII write guard),
+  `test_agent_wiring.py` (read-only guarantee + ingestion privilege boundary, structural).
+  The read-only guarantee is additionally exercised behaviorally by the
+  `read_only_guarantee` eval case.
 - PII-redaction and injection-rejection score **5.0** on the LLM-as-judge evalset
   (non-negotiable). Also enforced by deterministic code + unit tests.
-- Categorization scores **≥ 4.0** on the evalset.
+- Categorization quality is reflected in `custom_response_quality` **≥ 4.0** on the
+  evalset (there is no separate categorization metric; the categorization cases feed
+  the aggregate response-quality score).
 - The three agents (Orchestrator, Ingestion, Calendar) are wired with Ingestion
   sandboxed and Calendar privilege-separated; categorization and card-strategy
   reasoning are tools directly on the Orchestrator (no privilege boundary of their

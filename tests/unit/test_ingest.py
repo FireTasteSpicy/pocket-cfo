@@ -14,7 +14,12 @@ from __future__ import annotations
 import datetime
 
 from app.models import TransactionSource
-from app.tools.ingest import ingest_receipt, ingest_statement_csv, parse_statement_csv
+from app.tools.ingest import (
+    ingest_manual,
+    ingest_receipt,
+    ingest_statement_csv,
+    parse_statement_csv,
+)
 from app.tools.ledger import load_ledger
 
 
@@ -57,6 +62,23 @@ def test_account_number_redacted_on_ingest(tmp_path) -> None:
     txn = load_ledger(path)[0]
     assert "1234-5678-9012-3456" not in txn.merchant
     assert txn.pii_redacted is True
+
+
+# ── SPEC: conversational manual entry ───────────────────────────────────────
+def test_logs_manual_cash_entry_as_categorized_expense(tmp_path) -> None:
+    """SPEC §3 "Log an untracked cash purchase from natural language":
+    "$30 cash on lunch" -> a MANUAL Transaction, card_id=null, positive expense,
+    categorized. (Previously covered only by the eval; pinned here as a unit test.)"""
+    path = tmp_path / "ledger.json"
+    result = ingest_manual("lunch at the hawker centre", 3000, ledger_path=path)
+    assert result.added == 1
+    txn = load_ledger(path)[-1]
+    assert txn.source == TransactionSource.MANUAL
+    assert txn.card_id is None  # cash / no card
+    assert txn.amount_cents == 3000  # positive expense, never a credit
+    assert txn.category is not None  # categorized by the shared engine
+    assert txn.pii_redacted is True  # still goes through the redact + guard path
+    assert "Imported 1 transaction" in result.summary()
 
 
 # ── SPEC: prompt-injection defense ──────────────────────────────────────────

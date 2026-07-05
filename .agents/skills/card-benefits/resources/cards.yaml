@@ -2,8 +2,8 @@
 #
 # This file exists so the model READS exact numbers instead of hallucinating them
 # (the course's "reference skill" pattern, analogous to the license-header data
-# file). Every minimum-spend target, deadline, and multiplier the Card Strategy
-# agent uses comes from here — never invented.
+# file). Every minimum-spend target, deadline, and multiplier the which_card
+# tool uses comes from here — never invented.
 #
 # Amounts are integer cents. Multiplier keys are bonus categories
 # (TRAVEL/DINING/GROCERIES/DEFAULT); DEFAULT is the "everything else" rate.

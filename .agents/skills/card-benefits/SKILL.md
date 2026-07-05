@@ -28,9 +28,9 @@ category (`TRAVEL`, `DINING`, `GROCERIES`, `DEFAULT`).
 
 ## How it's consumed
 
-`app/tools/cards.py` loads this file into validated `Card` objects. The Card
-Strategy agent combines these static terms with live progress computed from the
-ledger to answer "which card should I use?". Because the numbers are read (not
+`app/tools/cards.py` loads this file into validated `Card` objects. The
+`which_card` tool on the Orchestrator combines these static terms with live
+progress computed from the ledger to answer "which card should I use?". Because the numbers are read (not
 generated), the recommendation is auditable: every figure in the rationale traces
 back to a line in this file or to the ledger.
 

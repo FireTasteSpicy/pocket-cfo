@@ -1,0 +1,19 @@
+Pocket CFO
+Copyright 2026 Pocket CFO contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Portions of this repository are project scaffolding generated from the Google
+Agent Development Kit (ADK) and its `google-agents-cli` templates. Those files
+retain their original header:
+
+    Copyright 2026 Google LLC
+    Licensed under the Apache License, Version 2.0.
+
+They are used unmodified or lightly adapted under that same Apache-2.0 license.
+All other original source, documentation, and configuration in this repository
+is authored by the Pocket CFO project and is likewise licensed under the
+Apache License, Version 2.0.
+
+(Replace "Pocket CFO contributors" above with your own name/organization if you
+wish to assert copyright under your legal identity.)

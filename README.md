@@ -83,7 +83,7 @@ flowchart TD
 | Agent | Privilege | Responsibility |
 |-------|-----------|----------------|
 | **Ingestion** | 🔒 Sandboxed, low-privilege | The _only_ agent that touches raw documents. Parses statements/receipts, deduplicates receipt-vs-statement entries, and **redacts PII before anything downstream sees it.** Treats document text as **data, never instructions.** |
-| **Calendar** | 🔒 Calendar write-access | Manages payday, statement-close, payment-due, and bonus-deadline events via the Google Calendar MCP server (or the OAuth fallback). |
+| **Calendar** | 🔒 Calendar write-access | Manages payday, payment-due, and bonus-deadline events via the Google Calendar MCP server (or the OAuth fallback). |
 | **Orchestrator** | Standard | The front door. Routes natural-language questions, handles conversational manual entry, categorizes transactions, answers "which card?", and delegates to the two specialists when their privilege is actually needed. |
 
 An earlier revision shipped Categorization and Card Strategy as two more agents.
@@ -112,7 +112,7 @@ The hackathon requires **at least three** of six concepts.
 | Concept | Demonstrated in | Where |
 |---------|-----------------|-------|
 | **Agent / Multi-agent system (ADK)** | Three ADK 2.3 agents (Orchestrator, Ingestion, Calendar) — multi-agent only where privilege genuinely differs, with the rest as tools on a delegating orchestrator | Code |
-| **MCP Server** | Google Calendar MCP for event management | Code |
+| **MCP Server** | Official Google Calendar MCP wiring (`McpToolset` → `calendarmcp.googleapis.com`, Developer-Preview-gated); the live demo uses the GA Calendar REST fallback when that access is absent | Code |
 | **Security features** | PII redaction, prompt-injection defense, read-only gate, privilege separation, Semgrep + gitleaks pre-commit | Code + Video |
 | **Deployability** | Scaffolded by `agents-cli` for the Agent Runtime deployment target; not deployed to a live Cloud Run/Agent Runtime endpoint for this submission | Code |
 | **Agent Skills** | `card-benefits` (reference, on the Orchestrator) + `statement-reconciler` (script, on the Ingestion agent), wired via ADK's `SkillToolset` | Code |
@@ -291,7 +291,12 @@ limitations of this evalset. The evalset lives in [`tests/eval/`](tests/eval/).
 
 All four targets are met, including `ledger_integrity` — the new mechanism-level
 check that reads the actual persisted ledger rather than trusting the model's
-narration. Full per-case detail and the local-harness cross-check are in
+narration. Note that `pii_containment` and `injection_rejection` are narration-level
+signals and several eval cases carry no attack (a known limitation documented in the
+methodology); the load-bearing proof that the security properties actually hold is
+`ledger_integrity` plus the deterministic guards and their unit tests
+(`test_redaction.py`, `test_injection.py`, `test_ledger.py`, `test_agent_wiring.py`).
+Full per-case detail and the local-harness cross-check are in
 [`docs/WRITEUP.md`](docs/WRITEUP.md).
 
 ## 12. Testing

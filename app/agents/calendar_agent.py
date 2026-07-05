@@ -1,6 +1,6 @@
 """Calendar agent — money-date reminders via the Google Calendar MCP server.
 
-PRIVILEGE (ARCHITECTURE.md §2.4): this is the one agent with calendar WRITE access.
+PRIVILEGE (ARCHITECTURE.md §2.2): this is the one agent with calendar WRITE access.
 That capability is exactly why it is a separate agent from Ingestion — their
 security postures are incompatible, so a compromise of the document reader can't
 reach calendar write. It has no access to raw documents and cannot move money.
@@ -161,7 +161,7 @@ calendar_agent = Agent(
     name="calendar_agent",
     model=Gemini(model=_MODEL, retry_options=types.HttpRetryOptions(attempts=3)),
     description=(
-        "Manages payday, statement-close, payment-due, and bonus-deadline events via "
+        "Manages payday, payment-due, and bonus-deadline events via "
         "the Google Calendar MCP server, and reasons across them to nudge the user."
     ),
     instruction=_CALENDAR_INSTRUCTION,
