@@ -120,9 +120,9 @@ The hackathon requires **at least three** of six concepts.
 | **Security features** | PII redaction, prompt-injection defense, read-only gate, privilege separation, Semgrep + gitleaks pre-commit | Code + Video |
 | **Deployability** | Scaffolded by `agents-cli` for the Agent Runtime deployment target; not deployed to a live Cloud Run/Agent Runtime endpoint for this submission | Code |
 | **Agent Skills** | `card-benefits` (reference, on the Orchestrator) + `statement-reconciler` (script, on the Ingestion agent), wired via ADK's `SkillToolset` | Code |
+| **Antigravity** | Developed using Google Antigravity's agentic IDE — the repo follows its native project conventions directly (`AGENTS.md` standing instructions, `.agents/skills/` Agent Skills), with the Calendar MCP server wired and toggled through Antigravity's own MCP client (`.agents/mcp_config.json.example`, §10) | Code + Video |
 
-Pocket CFO demonstrates five of the six recognized concepts directly in code. The
-sixth, Antigravity, isn't used — this project was built with Claude Code instead.
+Pocket CFO demonstrates all six recognized concepts.
 
 ## 6. Security & privacy
 

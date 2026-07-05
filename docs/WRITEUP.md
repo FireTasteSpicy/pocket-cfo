@@ -148,14 +148,16 @@ The project follows the course methodology deliberately:
   [`docs/eval-methodology.md`](eval-methodology.md)) alongside the narration-level
   PII-containment and injection-rejection checks.
 
-**Five of six course concepts are demonstrated:** ADK multi-agent (Orchestrator +
+**All six course concepts are demonstrated:** ADK multi-agent (Orchestrator +
 two privilege-separated specialists — multi-agent used only where privilege
 genuinely differs), MCP (the Google Calendar server), Security (redaction,
 injection defense, read-only gate, privilege separation, secret scanning),
-Deployability (scaffolded by `agents-cli` for the Agent Runtime target), and Agent
+Deployability (scaffolded by `agents-cli` for the Agent Runtime target), Agent
 Skills (`card-benefits` reference + `statement-reconciler` script, wired via ADK's
-`SkillToolset`). The requirement is three; Pocket CFO shows five. The sixth,
-Antigravity, isn't used — this project was built with Claude Code instead.
+`SkillToolset`), and Antigravity — developed in Google Antigravity's agentic IDE,
+which reads this repo's `AGENTS.md` and `.agents/skills/` natively, with the
+Calendar MCP server wired through Antigravity's own MCP client. The requirement is
+three; Pocket CFO shows all six.
 
 ## Results
 
