@@ -94,7 +94,7 @@ sequenceDiagram
     Ing->>Pipe: scan for injected instructions (treat as DATA, flag)
     Pipe->>Pipe: parse -> REDACT PII -> categorize -> reconcile vs receipts
     Pipe->>Ledger: write redacted transactions (write guard refuses unredacted)
-    Orch-->>User: "Imported 18 transactions (0 merged); account number redacted."
+    Orch-->>User: "Imported 18 transactions (0 merged) — account number redacted."
 ```
 
 ## 4. Data flow: the "which card?" recommendation
